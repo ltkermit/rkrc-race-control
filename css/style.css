@@ -14,8 +14,15 @@ body {
   left: 0;
   bottom: 0;
   width: 100%;
-  color: black;
+  color: #a6a6a6;
   text-align: center;
+  
+}
+
+.footer a {
+  color: #a6a6a6;
+  font-weight: bold;
+  text-decoration: none;
 }
 
 /* Checkerboard pattern for race end */
