@@ -292,5 +292,32 @@ startRaceBtn.addEventListener('click', () => {
     });
 </script>
 
+<script>
+// Function to check if the device is in active state (screen not locked)
+function isActive() {
+    var doc = document;
+    return !doc.hidden && !doc.mozHidden && !doc.webkitVisibilityState === "visible";
+}
+
+// Function to keep the screen awake by focusing on a specific element
+function keepAwake() {
+    if (!isActive()) {
+        document.activeElement = null; // Try to focus on an element that is guaranteed to exist
+        document.body.focus();
+        setTimeout(keepAwake, 10000); // Recheck every 10 seconds
+    }
+}
+
+// Function to add event listener for visibility change and call keepAwake function if necessary
+document.addEventListener("visibilitychange", function() {
+    keepAwake();
+});
+
+// Call the initial keepAwake function
+keepAwake();
+
+// Note: This solution might not work in all browsers or devices, as it relies on browser-specific features.
+</script>
+
 </body>
 </html>
