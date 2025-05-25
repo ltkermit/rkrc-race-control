@@ -8,8 +8,6 @@
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <!-- Include NoSleep.js to keep screen awake on mobile devices -->
 	<script src="{{ url_for('static', filename='js/noSleep.min.js') }}"></script>
-	<!-- Include main timer funtcion script -->
-	<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 
 </head>
 <body>
@@ -63,6 +61,9 @@
 <audio id="beepSound" src="{{ url_for('static', filename='audio/beep.mp3') }}" preload="auto"></audio>
 <audio id="startBeepSound" src="{{ url_for('static', filename='audio/start-beep.mp3') }}" preload="auto"></audio>
 <audio id="startEnginesSound" src="{{ url_for('static', filename='audio/start-engines.mp3') }}" preload="auto"></audio>
+
+<!-- Include main timer funtcion script -->
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 
 </body>
 </html>
