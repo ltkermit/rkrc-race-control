@@ -43,128 +43,176 @@
     <audio id="restartSound" src="{{ url_for('static', filename='audio/restart.mp3') }}" preload="auto"></audio>
 
     <script>
-        const raceTimeSelect = document.getElementById('raceTime');
-        const startRaceBtn = document.getElementById('startRace');
-        const timerDisplay = document.getElementById('timer');
-        const yellowFlagBtn = document.getElementById('yellowFlag');
-        const redFlagBtn = document.getElementById('redFlag');
-        const restartBtn = document.getElementById('restart');
+    const raceTimeSelect = document.getElementById('raceTime');
+    const startRaceBtn = document.getElementById('startRace');
+    const timerDisplay = document.getElementById('timer');
+    const yellowFlagBtn = document.getElementById('yellowFlag');
+    const redFlagBtn = document.getElementById('redFlag');
+    const restartBtn = document.getElementById('restart');
 
-        let totalSeconds = 0;
-        let secondsLeft = 0;
-        let timerInterval = null;
-        let isRunning = false;
-        let isYellowFlag = false;
-        let isRedFlag = false;
-        let lastMinutePlayed = -1;
+    let totalSeconds = 0;
+    let secondsLeft = 0;
+    let timerInterval = null;
+    let isRunning = false;
+    let isYellowFlag = false;
+    let isRedFlag = false;
+    let lastMinutePlayed = -1;
 
-        // Enable start button only after audio is loaded
-        const startSound = document.getElementById('startSound');
-        startSound.oncanplaythrough = function() {
-            startRaceBtn.disabled = false;
-        };
+    // Enable start button immediately for testing
+    startRaceBtn.disabled = false;
+    console.log("Script loaded and start button enabled!");
 
-        // Start race with random delay
-        startRaceBtn.addEventListener('click', () => {
-            totalSeconds = parseInt(raceTimeSelect.value) * 60;
-            secondsLeft = totalSeconds;
-            updateTimerDisplay();
-            raceTimeSelect.disabled = true;
-            startRaceBtn.disabled = true;
-            yellowFlagBtn.disabled = false;
-            redFlagBtn.disabled = false;
-            restartBtn.disabled = false;
-
-            const randomDelay = Math.floor(Math.random() * 5000) + 1000; // Random delay between 1-5 seconds
-            setTimeout(() => {
-                startSound.play();
-                isRunning = true;
-                startTimer();
-            }, randomDelay);
-        });
-
-        // Timer logic
-        function startTimer() {
-            timerInterval = setInterval(() => {
-                if (isRunning && secondsLeft > 0) {
-                    secondsLeft--;
-                    updateTimerDisplay();
-                    checkMinuteMark();
-                } else if (secondsLeft <= 0) {
-                    clearInterval(timerInterval);
-                    isRunning = false;
-                    endSound.play();
-                    disableButtons();
-                }
-            }, 1000);
+    // Function to update background color based on state
+    function updateBackgroundColor() {
+        if (isRedFlag) {
+            document.body.style.backgroundColor = '#e74c3c'; // Red for Red Flag
+        } else if (isYellowFlag) {
+            document.body.style.backgroundColor = '#f1c40f'; // Yellow for Yellow Flag
+        } else if (isRunning) {
+            document.body.style.backgroundColor = '#2ecc71'; // Green for Race Running
+        } else {
+            document.body.style.backgroundColor = '#f0f0f0'; // Default gray when not running
         }
+    }
 
-        function updateTimerDisplay() {
-            const minutes = Math.floor(secondsLeft / 60);
-            const seconds = secondsLeft % 60;
-            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
+    // Start race with random delay
+    startRaceBtn.addEventListener('click', () => {
+        totalSeconds = parseInt(raceTimeSelect.value) * 60;
+        secondsLeft = totalSeconds;
+        updateTimerDisplay();
+        raceTimeSelect.disabled = true;
+        startRaceBtn.disabled = true;
+        yellowFlagBtn.disabled = false;
+        redFlagBtn.disabled = false;
+        restartBtn.disabled = false;
 
-        function checkMinuteMark() {
-            const currentMinute = Math.floor(secondsLeft / 60);
-            if (currentMinute !== lastMinutePlayed && secondsLeft % 60 === 0 && currentMinute > 0) {
-                minuteSound.play();
-                lastMinutePlayed = currentMinute;
+        const randomDelay = Math.floor(Math.random() * 5000) + 1000; // Random delay between 1-5 seconds
+        setTimeout(() => {
+            try {
+                document.getElementById('startSound').play().catch(e => console.error("Audio play error:", e));
+            } catch (e) {
+                console.error("Start sound failed:", e);
             }
-        }
+            isRunning = true;
+            updateBackgroundColor(); // Update background when race starts
+            startTimer();
+        }, randomDelay);
+    });
 
-        function disableButtons() {
-            yellowFlagBtn.disabled = true;
-            redFlagBtn.disabled = true;
-            restartBtn.disabled = false;
-        }
-
-        // Yellow Flag logic
-        yellowFlagBtn.addEventListener('click', () => {
-            isYellowFlag = !isYellowFlag;
-            if (isYellowFlag) {
-                yellowOnSound.play();
-                yellowFlagBtn.textContent = 'Clear Yellow Flag';
-            } else {
-                yellowOffSound.play();
-                yellowFlagBtn.textContent = 'Yellow Flag';
-            }
-        });
-
-        // Red Flag logic
-        redFlagBtn.addEventListener('click', () => {
-            isRedFlag = !isRedFlag;
-            if (isRedFlag) {
-                redOnSound.play();
-                isRunning = false;
+    // Timer logic
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            if (isRunning && secondsLeft > 0) {
+                secondsLeft--;
+                updateTimerDisplay();
+                checkMinuteMark();
+            } else if (secondsLeft <= 0) {
                 clearInterval(timerInterval);
-                redFlagBtn.textContent = 'Clear Red Flag';
-            } else {
-                redOffSound.play();
-                isRunning = true;
-                startTimer();
-                redFlagBtn.textContent = 'Red Flag';
+                isRunning = false;
+                try {
+                    document.getElementById('endSound').play().catch(e => console.error("Audio play error:", e));
+                } catch (e) {
+                    console.error("End sound failed:", e);
+                }
+                updateBackgroundColor(); // Update background when race ends
+                disableButtons();
             }
-        });
+        }, 1000);
+    }
 
-        // Restart logic
-        restartBtn.addEventListener('click', () => {
-            clearInterval(timerInterval);
-            isRunning = false;
-            secondsLeft = totalSeconds;
-            updateTimerDisplay();
-            isYellowFlag = false;
-            isRedFlag = false;
+    function updateTimerDisplay() {
+        const minutes = Math.floor(secondsLeft / 60);
+        const seconds = secondsLeft % 60;
+        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function checkMinuteMark() {
+        const currentMinute = Math.floor(secondsLeft / 60);
+        if (currentMinute !== lastMinutePlayed && secondsLeft % 60 === 0 && currentMinute > 0) {
+            try {
+                document.getElementById('minuteSound').play().catch(e => console.error("Audio play error:", e));
+            } catch (e) {
+                console.error("Minute sound failed:", e);
+            }
+            lastMinutePlayed = currentMinute;
+        }
+    }
+
+    function disableButtons() {
+        yellowFlagBtn.disabled = true;
+        redFlagBtn.disabled = true;
+        restartBtn.disabled = false;
+    }
+
+    // Yellow Flag logic
+    yellowFlagBtn.addEventListener('click', () => {
+        isYellowFlag = !isYellowFlag;
+        if (isYellowFlag) {
+            try {
+                document.getElementById('yellowOnSound').play().catch(e => console.error("Audio play error:", e));
+            } catch (e) {
+                console.error("Yellow on sound failed:", e);
+            }
+            yellowFlagBtn.textContent = 'Clear Yellow Flag';
+        } else {
+            try {
+                document.getElementById('yellowOffSound').play().catch(e => console.error("Audio play error:", e));
+            } catch (e) {
+                console.error("Yellow off sound failed:", e);
+            }
             yellowFlagBtn.textContent = 'Yellow Flag';
+        }
+        updateBackgroundColor(); // Update background when Yellow Flag state changes
+    });
+
+    // Red Flag logic
+    redFlagBtn.addEventListener('click', () => {
+        isRedFlag = !isRedFlag;
+        if (isRedFlag) {
+            try {
+                document.getElementById('redOnSound').play().catch(e => console.error("Audio play error:", e));
+            } catch (e) {
+                console.error("Red on sound failed:", e);
+            }
+            isRunning = false;
+            clearInterval(timerInterval);
+            redFlagBtn.textContent = 'Clear Red Flag';
+        } else {
+            try {
+                document.getElementById('redOffSound').play().catch(e => console.error("Audio play error:", e));
+            } catch (e) {
+                console.error("Red off sound failed:", e);
+            }
+            isRunning = true;
+            startTimer();
             redFlagBtn.textContent = 'Red Flag';
-            raceTimeSelect.disabled = false;
-            startRaceBtn.disabled = false;
-            yellowFlagBtn.disabled = true;
-            redFlagBtn.disabled = true;
-            restartBtn.disabled = true;
-            lastMinutePlayed = -1;
-            restartSound.play();
-        });
-    </script>
+        }
+        updateBackgroundColor(); // Update background when Red Flag state changes
+    });
+
+    // Restart logic
+    restartBtn.addEventListener('click', () => {
+        clearInterval(timerInterval);
+        isRunning = false;
+        secondsLeft = totalSeconds;
+        updateTimerDisplay();
+        isYellowFlag = false;
+        isRedFlag = false;
+        yellowFlagBtn.textContent = 'Yellow Flag';
+        redFlagBtn.textContent = 'Red Flag';
+        raceTimeSelect.disabled = false;
+        startRaceBtn.disabled = false;
+        yellowFlagBtn.disabled = true;
+        redFlagBtn.disabled = true;
+        restartBtn.disabled = true;
+        lastMinutePlayed = -1;
+        try {
+            document.getElementById('restartSound').play().catch(e => console.error("Audio play error:", e));
+        } catch (e) {
+            console.error("Restart sound failed:", e);
+        }
+        updateBackgroundColor(); // Update background when race is restarted
+    });
+</script>
 </body>
 </html>
