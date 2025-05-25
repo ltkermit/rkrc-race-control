@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RKRC Race Control</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1>RKRC Race Control</h1>
+    <form action="/start_timer" method="post">
+        <label for="time">Select race time (2-10 minutes):</label>
+        <select id="time" name="time">
+            {% for i in range(2, 11) %}
+                <option value="{{ i }}">{{ i }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="Start timer">
+    </form>
+
+    <div id="timer-container">
+        <h2 id="time-left">Time left: {{ time_left }} seconds</h2>
+    </div>
+
+    <button id="caution-button" onclick="playCautionSound()">Caution</button>
+    <audio id="caution-sound" src="" autoplay></audio>
+
+    <button id="redflag-button" onclick="playRedFlagSound()">Red Flag</button>
+    <audio id="redflag-sound" src="" autoplay></audio>
+
+    <button id="restart-button" onclick="restartTimer()">Restart</button>
+    <audio id="restart-sound" src="" autoplay></audio>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
