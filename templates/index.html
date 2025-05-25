@@ -52,7 +52,7 @@
 <audio id="1-minute" src="{{ url_for('static', filename='audio/1-minute.mp3') }}" preload="auto"></audio>
 <audio id="30-seconds" src="{{ url_for('static', filename='audio/30-seconds.mp3') }}" preload="auto"></audio>
 
-    <script>
+<script>
     const raceTimeSelect = document.getElementById('raceTime');
     const startRaceBtn = document.getElementById('startRace');
     const timerDisplay = document.getElementById('timer');
@@ -74,9 +74,15 @@
     raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
     console.log("Script loaded, start button and time selector enabled!");
 
-    // Function to update background color based on state
+    // Function to update background color or pattern based on state
     function updateBackgroundColor() {
-        if (isRedFlag) {
+        // Remove checkerboard class by default to ensure it's only applied when race ends
+        document.body.classList.remove('checkerboard');
+        // Set background based on state
+        if (!isRunning && secondsLeft <= 0) {
+            // Race has ended, apply checkerboard pattern
+            document.body.classList.add('checkerboard');
+        } else if (isRedFlag) {
             document.body.style.backgroundColor = '#e74c3c'; // Red for Red Flag
         } else if (isYellowFlag) {
             document.body.style.backgroundColor = '#f1c40f'; // Yellow for Yellow Flag
@@ -126,7 +132,7 @@
                 } catch (e) {
                     console.error("End sound failed:", e);
                 }
-                updateBackgroundColor(); // Update background when race ends
+                updateBackgroundColor(); // Update background when race ends (apply checkerboard)
                 disableButtons();
             }
         }, 1000);
@@ -245,8 +251,9 @@
         } catch (e) {
             console.error("Restart sound failed:", e);
         }
-        updateBackgroundColor(); // Update background when race is restarted
+        updateBackgroundColor(); // Update background when race is restarted (remove checkerboard)
     });
 </script>
+
 </body>
 </html>

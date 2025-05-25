@@ -6,7 +6,16 @@ body {
     height: 100vh;
     margin: 0;
     background-color: #f0f0f0;
-    transition: background-color 0.5s ease; /* Add smooth transition for background color */
+    transition: background-color 0.5s ease, background 0.5s ease; /* Add transition for background changes */
+}
+
+/* Checkerboard pattern for race end */
+.checkerboard {
+    background: 
+        linear-gradient(45deg, black 25%, transparent 25%, transparent 75%, black 75%, black),
+        linear-gradient(45deg, black 25%, white 25%, white 75%, black 75%, black);
+    background-size: 20px 20px; /* Size of the checkerboard squares */
+    background-position: 0 0, 10px 10px; /* Offset for the second gradient to create checkerboard */
 }
 
 .container {
