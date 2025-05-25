@@ -1,5 +1,5 @@
 # RKRC Race Control
-A simple web based racing timer.
+A simple web based and mobile friendly racing timer.
 
 https://control.rkrc.club/
 
