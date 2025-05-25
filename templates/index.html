@@ -32,15 +32,25 @@
         </div>
     </div>
 
-    <!-- Audio elements for different events -->
-    <audio id="startSound" src="{{ url_for('static', filename='audio/start.mp3') }}" preload="auto"></audio>
-    <audio id="yellowOnSound" src="{{ url_for('static', filename='audio/yellow_on.mp3') }}" preload="auto"></audio>
-    <audio id="yellowOffSound" src="{{ url_for('static', filename='audio/yellow_off.mp3') }}" preload="auto"></audio>
-    <audio id="redOnSound" src="{{ url_for('static', filename='audio/red_on.mp3') }}" preload="auto"></audio>
-    <audio id="redOffSound" src="{{ url_for('static', filename='audio/red_off.mp3') }}" preload="auto"></audio>
-    <audio id="minuteSound" src="{{ url_for('static', filename='audio/minute.mp3') }}" preload="auto"></audio>
-    <audio id="endSound" src="{{ url_for('static', filename='audio/end.mp3') }}" preload="auto"></audio>
-    <audio id="restartSound" src="{{ url_for('static', filename='audio/restart.mp3') }}" preload="auto"></audio>
+   <!-- Audio elements for different events -->
+<audio id="startSound" src="{{ url_for('static', filename='audio/start.mp3') }}" preload="auto"></audio>
+<audio id="yellowOnSound" src="{{ url_for('static', filename='audio/yellow_on.mp3') }}" preload="auto"></audio>
+<audio id="yellowOffSound" src="{{ url_for('static', filename='audio/yellow_off.mp3') }}" preload="auto"></audio>
+<audio id="redOnSound" src="{{ url_for('static', filename='audio/red_on.mp3') }}" preload="auto"></audio>
+<audio id="redOffSound" src="{{ url_for('static', filename='audio/red_off.mp3') }}" preload="auto"></audio>
+<audio id="endSound" src="{{ url_for('static', filename='audio/end.mp3') }}" preload="auto"></audio>
+<audio id="restartSound" src="{{ url_for('static', filename='audio/restart.mp3') }}" preload="auto"></audio>
+<!-- New audio elements for each minute and 30 seconds -->
+<audio id="9-minute" src="{{ url_for('static', filename='audio/9-minute.mp3') }}" preload="auto"></audio>
+<audio id="8-minute" src="{{ url_for('static', filename='audio/8-minute.mp3') }}" preload="auto"></audio>
+<audio id="7-minute" src="{{ url_for('static', filename='audio/7-minute.mp3') }}" preload="auto"></audio>
+<audio id="6-minute" src="{{ url_for('static', filename='audio/6-minute.mp3') }}" preload="auto"></audio>
+<audio id="5-minute" src="{{ url_for('static', filename='audio/5-minute.mp3') }}" preload="auto"></audio>
+<audio id="4-minute" src="{{ url_for('static', filename='audio/4-minute.mp3') }}" preload="auto"></audio>
+<audio id="3-minute" src="{{ url_for('static', filename='audio/3-minute.mp3') }}" preload="auto"></audio>
+<audio id="2-minute" src="{{ url_for('static', filename='audio/2-minute.mp3') }}" preload="auto"></audio>
+<audio id="1-minute" src="{{ url_for('static', filename='audio/1-minute.mp3') }}" preload="auto"></audio>
+<audio id="30-seconds" src="{{ url_for('static', filename='audio/30-seconds.mp3') }}" preload="auto"></audio>
 
     <script>
     const raceTimeSelect = document.getElementById('raceTime');
@@ -57,10 +67,12 @@
     let isYellowFlag = false;
     let isRedFlag = false;
     let lastMinutePlayed = -1;
+    let hasPlayed30Seconds = false; // Track if 30-second sound has been played
 
-    // Enable start button immediately for testing
+    // Explicitly enable start button and time selector on page load
     startRaceBtn.disabled = false;
-    console.log("Script loaded and start button enabled!");
+    raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
+    console.log("Script loaded, start button and time selector enabled!");
 
     // Function to update background color based on state
     function updateBackgroundColor() {
@@ -80,7 +92,7 @@
         totalSeconds = parseInt(raceTimeSelect.value) * 60;
         secondsLeft = totalSeconds;
         updateTimerDisplay();
-        raceTimeSelect.disabled = true;
+        raceTimeSelect.disabled = true; // Disable time selector when race starts
         startRaceBtn.disabled = true;
         yellowFlagBtn.disabled = false;
         redFlagBtn.disabled = false;
@@ -105,7 +117,7 @@
             if (isRunning && secondsLeft > 0) {
                 secondsLeft--;
                 updateTimerDisplay();
-                checkMinuteMark();
+                checkTimeMarks(); // Check for minute and 30-second marks
             } else if (secondsLeft <= 0) {
                 clearInterval(timerInterval);
                 isRunning = false;
@@ -126,15 +138,36 @@
         timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    function checkMinuteMark() {
+    function checkTimeMarks() {
         const currentMinute = Math.floor(secondsLeft / 60);
-        if (currentMinute !== lastMinutePlayed && secondsLeft % 60 === 0 && currentMinute > 0) {
+        const currentSecond = secondsLeft % 60;
+
+        // Check for minute marks (play specific minute audio when seconds hit 0)
+        if (currentMinute !== lastMinutePlayed && currentSecond === 0 && currentMinute > 0) {
             try {
-                document.getElementById('minuteSound').play().catch(e => console.error("Audio play error:", e));
+                const audioId = `${currentMinute}-minute`;
+                console.log(`Playing audio for ${currentMinute} minute(s) left: ${audioId}`);
+                const audioElement = document.getElementById(audioId);
+                if (audioElement) {
+                    audioElement.play().catch(e => console.error(`Audio play error for ${audioId}:`, e));
+                } else {
+                    console.error(`Audio element not found for ${audioId}`);
+                }
             } catch (e) {
-                console.error("Minute sound failed:", e);
+                console.error(`Error playing ${currentMinute}-minute sound:`, e);
             }
             lastMinutePlayed = currentMinute;
+        }
+
+        // Check for 30-second mark
+        if (secondsLeft === 30 && !hasPlayed30Seconds) {
+            try {
+                console.log("Playing audio for 30 seconds left");
+                document.getElementById('30-seconds').play().catch(e => console.error("Audio play error for 30-seconds:", e));
+                hasPlayed30Seconds = true; // Mark as played to avoid repeats
+            } catch (e) {
+                console.error("30-seconds sound failed:", e);
+            }
         }
     }
 
@@ -200,12 +233,13 @@
         isRedFlag = false;
         yellowFlagBtn.textContent = 'Yellow Flag';
         redFlagBtn.textContent = 'Red Flag';
-        raceTimeSelect.disabled = false;
+        raceTimeSelect.disabled = false; // Enable time selector on restart
         startRaceBtn.disabled = false;
         yellowFlagBtn.disabled = true;
         redFlagBtn.disabled = true;
         restartBtn.disabled = true;
         lastMinutePlayed = -1;
+        hasPlayed30Seconds = false; // Reset 30-second sound flag on restart
         try {
             document.getElementById('restartSound').play().catch(e => console.error("Audio play error:", e));
         } catch (e) {
