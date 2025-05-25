@@ -7,8 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <!-- Include NoSleep.js from CDN to keep screen awake on mobile devices -->
-    <script src="https://cdn.jsdelivr.net/npm/nosleep@0.12.0/dist/noSleep.min.js"></script>
-</head>
+	<script src="{{ url_for('static', filename='js/noSleep.min.js') }}"></script></head>
 <body>
     <div class="container">
 		<img src="/static/img/logo-v4-no-tag.png" width="200">
