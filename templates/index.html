@@ -55,6 +55,7 @@
 <!-- New audio elements for updated start sequence -->
 <audio id="beepSound" src="{{ url_for('static', filename='audio/beep.mp3') }}" preload="auto"></audio>
 <audio id="startBeepSound" src="{{ url_for('static', filename='audio/start-beep.mp3') }}" preload="auto"></audio>
+<audio id="startEnginesSound" src="{{ url_for('static', filename='audio/start-engines.mp3') }}" preload="auto"></audio>
 
 <script>
     const raceTimeSelect = document.getElementById('raceTime');
@@ -98,49 +99,57 @@
     }
 
     // Start race with updated sequence
-    startRaceBtn.addEventListener('click', () => {
-        totalSeconds = parseInt(raceTimeSelect.value) * 60;
-        secondsLeft = totalSeconds;
-        updateTimerDisplay();
-        raceTimeSelect.disabled = true; // Disable time selector when race starts
-        startRaceBtn.disabled = true;
-        yellowFlagBtn.disabled = false;
-        redFlagBtn.disabled = false;
-        restartBtn.disabled = false;
+startRaceBtn.addEventListener('click', () => {
+    totalSeconds = parseInt(raceTimeSelect.value) * 60;
+    secondsLeft = totalSeconds;
+    updateTimerDisplay();
+    raceTimeSelect.disabled = true; // Disable time selector when race starts
+    startRaceBtn.disabled = true;
+    yellowFlagBtn.disabled = false;
+    redFlagBtn.disabled = false;
+    restartBtn.disabled = false;
 
-        // Step 1: Wait 3 seconds before starting the beep sequence
-        setTimeout(() => {
-            // Step 2: Play beep.mp3 every 1.5 seconds for 4 times
-            let beepCount = 0;
-            const beepInterval = setInterval(() => {
-                if (beepCount < 4) {
-                    try {
-                        console.log(`Playing beep ${beepCount + 1}/4`);
-                        document.getElementById('beepSound').play().catch(e => console.error("Audio play error for beep:", e));
-                    } catch (e) {
-                        console.error("Beep sound failed:", e);
-                    }
-                    beepCount++;
-                } else {
-                    clearInterval(beepInterval); // Stop after 4 beeps
-                    // Step 3: Wait random 2-4 seconds after last beep
-                    const randomFinalDelay = Math.floor(Math.random() * 2000) + 2000; // Random delay between 2000-4000ms (2-4 seconds)
-                    setTimeout(() => {
-                        // Step 4: Play start-beep.mp3 and start the timer
-                        try {
-                            console.log("Playing start-beep and starting timer");
-                            document.getElementById('startBeepSound').play().catch(e => console.error("Audio play error for start-beep:", e));
-                        } catch (e) {
-                            console.error("Start-beep sound failed:", e);
-                        }
-                        isRunning = true;
-                        updateBackgroundColor(); // Update background when race starts
-                        startTimer();
-                    }, randomFinalDelay);
+    // Step 0: Play start-engines.mp3 immediately on button click
+    try {
+        console.log("Playing start-engines sound immediately");
+        document.getElementById('startEnginesSound').play().catch(e => console.error("Audio play error for start-engines:", e));
+    } catch (e) {
+        console.error("Start-engines sound failed:", e);
+    }
+
+    // Step 1: Wait 3 seconds before starting the beep sequence
+    setTimeout(() => {
+        // Step 2: Play beep.mp3 every 1.5 seconds for 4 times
+        let beepCount = 0;
+        const beepInterval = setInterval(() => {
+            if (beepCount < 4) {
+                try {
+                    console.log(`Playing beep ${beepCount + 1}/4`);
+                    document.getElementById('beepSound').play().catch(e => console.error("Audio play error for beep:", e));
+                } catch (e) {
+                    console.error("Beep sound failed:", e);
                 }
-            }, 1500); // Beep every 1.5 seconds
-        }, 3000); // Initial 3-second delay
-    });
+                beepCount++;
+            } else {
+                clearInterval(beepInterval); // Stop after 4 beeps
+                // Step 3: Wait random 2-4 seconds after last beep
+                const randomFinalDelay = Math.floor(Math.random() * 2000) + 2000; // Random delay between 2000-4000ms (2-4 seconds)
+                setTimeout(() => {
+                    // Step 4: Play start-beep.mp3 and start the timer
+                    try {
+                        console.log("Playing start-beep and starting timer");
+                        document.getElementById('startBeepSound').play().catch(e => console.error("Audio play error for start-beep:", e));
+                    } catch (e) {
+                        console.error("Start-beep sound failed:", e);
+                    }
+                    isRunning = true;
+                    updateBackgroundColor(); // Update background when race starts
+                    startTimer();
+                }, randomFinalDelay);
+            }
+        }, 1500); // Beep every 1.5 seconds
+    }, 3000); // Initial 3-second delay
+});
 
     // Timer logic
     function startTimer() {
