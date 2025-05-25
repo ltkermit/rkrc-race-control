@@ -37,9 +37,10 @@ h1 {
 }
 
 select, button {
-    padding: 10px;
+    padding: 20px;
     margin: 5px;
-    font-size: 16px;
+    font-size: 14px;
+	font-weight: bold;
     border: 1px solid #ccc;
     border-radius: 5px;
     cursor: pointer;
