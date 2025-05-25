@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RKRC Race Control</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-	<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <!-- Include NoSleep.js from CDN to keep screen awake on mobile devices -->
+    <script src="https://cdn.jsdelivr.net/npm/nosleep@0.12.0/dist/noSleep.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -77,6 +78,9 @@
     let lastMinutePlayed = -1;
     let hasPlayed30Seconds = false; // Track if 30-second sound has been played
 
+    // Initialize NoSleep to keep screen awake on mobile devices
+    const noSleep = new NoSleep();
+
     // Explicitly enable start button and time selector on page load
     startRaceBtn.disabled = false;
     raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
@@ -102,57 +106,65 @@
     }
 
     // Start race with updated sequence
-startRaceBtn.addEventListener('click', () => {
-    totalSeconds = parseInt(raceTimeSelect.value) * 60;
-    secondsLeft = totalSeconds;
-    updateTimerDisplay();
-    raceTimeSelect.disabled = true; // Disable time selector when race starts
-    startRaceBtn.disabled = true;
-    yellowFlagBtn.disabled = false;
-    redFlagBtn.disabled = false;
-    restartBtn.disabled = false;
+    startRaceBtn.addEventListener('click', () => {
+        totalSeconds = parseInt(raceTimeSelect.value) * 60;
+        secondsLeft = totalSeconds;
+        updateTimerDisplay();
+        raceTimeSelect.disabled = true; // Disable time selector when race starts
+        startRaceBtn.disabled = true;
+        yellowFlagBtn.disabled = false;
+        redFlagBtn.disabled = false;
+        restartBtn.disabled = false;
 
-    // Step 0: Play start-engines.mp3 immediately on button click
-    try {
-        console.log("Playing start-engines sound immediately");
-        document.getElementById('startEnginesSound').play().catch(e => console.error("Audio play error for start-engines:", e));
-    } catch (e) {
-        console.error("Start-engines sound failed:", e);
-    }
+        // Enable NoSleep to keep screen awake during the race
+        try {
+            noSleep.enable();
+            console.log("Screen wake lock enabled");
+        } catch (e) {
+            console.error("Failed to enable screen wake lock:", e);
+        }
 
-    // Step 1: Wait 3 seconds before starting the beep sequence
-    setTimeout(() => {
-        // Step 2: Play beep.mp3 every 1.5 seconds for 4 times
-        let beepCount = 0;
-        const beepInterval = setInterval(() => {
-            if (beepCount < 4) {
-                try {
-                    console.log(`Playing beep ${beepCount + 1}/4`);
-                    document.getElementById('beepSound').play().catch(e => console.error("Audio play error for beep:", e));
-                } catch (e) {
-                    console.error("Beep sound failed:", e);
-                }
-                beepCount++;
-            } else {
-                clearInterval(beepInterval); // Stop after 4 beeps
-                // Step 3: Wait random 2-4 seconds after last beep
-                const randomFinalDelay = Math.floor(Math.random() * 2000) + 1000; // Random delay between 2000-4000ms (2-3 seconds)
-                setTimeout(() => {
-                    // Step 4: Play start-beep.mp3 and start the timer
+        // Step 0: Play start-engines.mp3 immediately on button click
+        try {
+            console.log("Playing start-engines sound immediately");
+            document.getElementById('startEnginesSound').play().catch(e => console.error("Audio play error for start-engines:", e));
+        } catch (e) {
+            console.error("Start-engines sound failed:", e);
+        }
+
+        // Step 1: Wait 3 seconds before starting the beep sequence
+        setTimeout(() => {
+            // Step 2: Play beep.mp3 every 1.5 seconds for 4 times
+            let beepCount = 0;
+            const beepInterval = setInterval(() => {
+                if (beepCount < 4) {
                     try {
-                        console.log("Playing start-beep and starting timer");
-                        document.getElementById('startBeepSound').play().catch(e => console.error("Audio play error for start-beep:", e));
+                        console.log(`Playing beep ${beepCount + 1}/4`);
+                        document.getElementById('beepSound').play().catch(e => console.error("Audio play error for beep:", e));
                     } catch (e) {
-                        console.error("Start-beep sound failed:", e);
+                        console.error("Beep sound failed:", e);
                     }
-                    isRunning = true;
-                    updateBackgroundColor(); // Update background when race starts
-                    startTimer();
-                }, randomFinalDelay);
-            }
-        }, 1500); // Beep every 1.5 seconds
-    }, 3000); // Initial 3-second delay
-});
+                    beepCount++;
+                } else {
+                    clearInterval(beepInterval); // Stop after 4 beeps
+                    // Step 3: Wait random 2-4 seconds after last beep
+                    const randomFinalDelay = Math.floor(Math.random() * 2000) + 2000; // Random delay between 2000-4000ms (2-4 seconds)
+                    setTimeout(() => {
+                        // Step 4: Play start-beep.mp3 and start the timer
+                        try {
+                            console.log("Playing start-beep and starting timer");
+                            document.getElementById('startBeepSound').play().catch(e => console.error("Audio play error for start-beep:", e));
+                        } catch (e) {
+                            console.error("Start-beep sound failed:", e);
+                        }
+                        isRunning = true;
+                        updateBackgroundColor(); // Update background when race starts
+                        startTimer();
+                    }, randomFinalDelay);
+                }
+            }, 1500); // Beep every 1.5 seconds
+        }, 3000); // Initial 3-second delay
+    });
 
     // Timer logic
     function startTimer() {
@@ -171,6 +183,13 @@ startRaceBtn.addEventListener('click', () => {
                 }
                 updateBackgroundColor(); // Update background when race ends (apply checkerboard)
                 disableButtons();
+                // Disable NoSleep when race ends
+                try {
+                    noSleep.disable();
+                    console.log("Screen wake lock disabled");
+                } catch (e) {
+                    console.error("Failed to disable screen wake lock:", e);
+                }
             }
         }, 1000);
     }
@@ -289,34 +308,14 @@ startRaceBtn.addEventListener('click', () => {
             console.error("Restart sound failed:", e);
         }
         updateBackgroundColor(); // Update background when race is restarted (remove checkerboard)
+        // Disable NoSleep when race is restarted
+        try {
+            noSleep.disable();
+            console.log("Screen wake lock disabled on restart");
+        } catch (e) {
+            console.error("Failed to disable screen wake lock on restart:", e);
+        }
     });
-</script>
-
-<script>
-// Function to check if the device is in active state (screen not locked)
-function isActive() {
-    var doc = document;
-    return !doc.hidden && !doc.mozHidden && !doc.webkitVisibilityState === "visible";
-}
-
-// Function to keep the screen awake by focusing on a specific element
-function keepAwake() {
-    if (!isActive()) {
-        document.activeElement = null; // Try to focus on an element that is guaranteed to exist
-        document.body.focus();
-        setTimeout(keepAwake, 10000); // Recheck every 10 seconds
-    }
-}
-
-// Function to add event listener for visibility change and call keepAwake function if necessary
-document.addEventListener("visibilitychange", function() {
-    keepAwake();
-});
-
-// Call the initial keepAwake function
-keepAwake();
-
-// Note: This solution might not work in all browsers or devices, as it relies on browser-specific features.
 </script>
 
 </body>
