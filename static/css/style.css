@@ -3,7 +3,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 50vh;
+    height: 75vh;
     margin: 0;
     background-color: #f0f0f0;
     transition: background-color 0.5s ease, background 0.5s ease; /* Add transition for background changes */
