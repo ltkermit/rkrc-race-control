@@ -83,8 +83,8 @@ startRaceBtn.addEventListener('click', () => {
 				beepCount++;
 			} else {
 				clearInterval(beepInterval); // Stop after 4 beeps
-				// Step 3: Wait random 2-4 seconds after last beep
-				const randomFinalDelay = Math.floor(Math.random() * 2000) + 2000; // Random delay between 2000-4000ms (2-4 seconds)
+				// Step 3: Wait random 2-3 seconds after last beep
+				const randomFinalDelay = Math.floor(Math.random() * 2000) + 1000; // Random delay between 2000-3000ms (2-3 seconds)
 				setTimeout(() => {
 					// Step 4: Play start-beep.mp3 and start the timer
 					try {
