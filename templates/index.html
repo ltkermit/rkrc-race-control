@@ -7,30 +7,164 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1>RKRC Race Control</h1>
-    <form action="/start_timer" method="post">
-        <label for="time">Select race time (2-10 minutes):</label>
-        <select id="time" name="time">
-            {% for i in range(2, 11) %}
-                <option value="{{ i }}">{{ i }}</option>
-            {% endfor %}
-        </select>
-        <input type="submit" value="Start timer">
-    </form>
-
-    <div id="timer-container">
-        <h2 id="time-left">Time left: {{ time_left }} seconds</h2>
+    <div class="container">
+        <h1>RKRC Race Control</h1>
+        <div class="settings">
+            <label for="raceTime">Select Race Time (minutes): </label>
+            <select id="raceTime" disabled>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5" selected>5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+            </select>
+            <button id="startRace" disabled>Start Race</button>
+        </div>
+        <div class="timer" id="timer">00:00</div>
+        <div class="controls">
+            <button id="yellowFlag" disabled>Yellow Flag</button>
+            <button id="redFlag" disabled>Red Flag</button>
+            <button id="restart" disabled>Restart</button>
+        </div>
     </div>
 
-    <button id="caution-button" onclick="playCautionSound()">Caution</button>
-    <audio id="caution-sound" src="" autoplay></audio>
+    <!-- Audio elements for different events -->
+    <audio id="startSound" src="{{ url_for('static', filename='audio/start.mp3') }}" preload="auto"></audio>
+    <audio id="yellowOnSound" src="{{ url_for('static', filename='audio/yellow_on.mp3') }}" preload="auto"></audio>
+    <audio id="yellowOffSound" src="{{ url_for('static', filename='audio/yellow_off.mp3') }}" preload="auto"></audio>
+    <audio id="redOnSound" src="{{ url_for('static', filename='audio/red_on.mp3') }}" preload="auto"></audio>
+    <audio id="redOffSound" src="{{ url_for('static', filename='audio/red_off.mp3') }}" preload="auto"></audio>
+    <audio id="minuteSound" src="{{ url_for('static', filename='audio/minute.mp3') }}" preload="auto"></audio>
+    <audio id="endSound" src="{{ url_for('static', filename='audio/end.mp3') }}" preload="auto"></audio>
+    <audio id="restartSound" src="{{ url_for('static', filename='audio/restart.mp3') }}" preload="auto"></audio>
 
-    <button id="redflag-button" onclick="playRedFlagSound()">Red Flag</button>
-    <audio id="redflag-sound" src="" autoplay></audio>
+    <script>
+        const raceTimeSelect = document.getElementById('raceTime');
+        const startRaceBtn = document.getElementById('startRace');
+        const timerDisplay = document.getElementById('timer');
+        const yellowFlagBtn = document.getElementById('yellowFlag');
+        const redFlagBtn = document.getElementById('redFlag');
+        const restartBtn = document.getElementById('restart');
 
-    <button id="restart-button" onclick="restartTimer()">Restart</button>
-    <audio id="restart-sound" src="" autoplay></audio>
+        let totalSeconds = 0;
+        let secondsLeft = 0;
+        let timerInterval = null;
+        let isRunning = false;
+        let isYellowFlag = false;
+        let isRedFlag = false;
+        let lastMinutePlayed = -1;
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+        // Enable start button only after audio is loaded
+        const startSound = document.getElementById('startSound');
+        startSound.oncanplaythrough = function() {
+            startRaceBtn.disabled = false;
+        };
+
+        // Start race with random delay
+        startRaceBtn.addEventListener('click', () => {
+            totalSeconds = parseInt(raceTimeSelect.value) * 60;
+            secondsLeft = totalSeconds;
+            updateTimerDisplay();
+            raceTimeSelect.disabled = true;
+            startRaceBtn.disabled = true;
+            yellowFlagBtn.disabled = false;
+            redFlagBtn.disabled = false;
+            restartBtn.disabled = false;
+
+            const randomDelay = Math.floor(Math.random() * 5000) + 1000; // Random delay between 1-5 seconds
+            setTimeout(() => {
+                startSound.play();
+                isRunning = true;
+                startTimer();
+            }, randomDelay);
+        });
+
+        // Timer logic
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (isRunning && secondsLeft > 0) {
+                    secondsLeft--;
+                    updateTimerDisplay();
+                    checkMinuteMark();
+                } else if (secondsLeft <= 0) {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    endSound.play();
+                    disableButtons();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(secondsLeft / 60);
+            const seconds = secondsLeft % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function checkMinuteMark() {
+            const currentMinute = Math.floor(secondsLeft / 60);
+            if (currentMinute !== lastMinutePlayed && secondsLeft % 60 === 0 && currentMinute > 0) {
+                minuteSound.play();
+                lastMinutePlayed = currentMinute;
+            }
+        }
+
+        function disableButtons() {
+            yellowFlagBtn.disabled = true;
+            redFlagBtn.disabled = true;
+            restartBtn.disabled = false;
+        }
+
+        // Yellow Flag logic
+        yellowFlagBtn.addEventListener('click', () => {
+            isYellowFlag = !isYellowFlag;
+            if (isYellowFlag) {
+                yellowOnSound.play();
+                yellowFlagBtn.textContent = 'Clear Yellow Flag';
+            } else {
+                yellowOffSound.play();
+                yellowFlagBtn.textContent = 'Yellow Flag';
+            }
+        });
+
+        // Red Flag logic
+        redFlagBtn.addEventListener('click', () => {
+            isRedFlag = !isRedFlag;
+            if (isRedFlag) {
+                redOnSound.play();
+                isRunning = false;
+                clearInterval(timerInterval);
+                redFlagBtn.textContent = 'Clear Red Flag';
+            } else {
+                redOffSound.play();
+                isRunning = true;
+                startTimer();
+                redFlagBtn.textContent = 'Red Flag';
+            }
+        });
+
+        // Restart logic
+        restartBtn.addEventListener('click', () => {
+            clearInterval(timerInterval);
+            isRunning = false;
+            secondsLeft = totalSeconds;
+            updateTimerDisplay();
+            isYellowFlag = false;
+            isRedFlag = false;
+            yellowFlagBtn.textContent = 'Yellow Flag';
+            redFlagBtn.textContent = 'Red Flag';
+            raceTimeSelect.disabled = false;
+            startRaceBtn.disabled = false;
+            yellowFlagBtn.disabled = true;
+            redFlagBtn.disabled = true;
+            restartBtn.disabled = true;
+            lastMinutePlayed = -1;
+            restartSound.play();
+        });
+    </script>
 </body>
 </html>

@@ -1,0 +1,80 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
+}
+
+.container {
+    text-align: center;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    color: #333;
+}
+
+.settings {
+    margin: 20px 0;
+}
+
+select, button {
+    padding: 10px;
+    margin: 5px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.timer {
+    font-size: 48px;
+    margin: 20px 0;
+    color: #2c3e50;
+}
+
+.controls button {
+    width: 120px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+}
+
+.controls button:hover:enabled {
+    background-color: #2980b9;
+}
+
+#yellowFlag {
+    background-color: #f1c40f;
+}
+
+#yellowFlag:hover:enabled {
+    background-color: #f39c12;
+}
+
+#redFlag {
+    background-color: #e74c3c;
+}
+
+#redFlag:hover:enabled {
+    background-color: #c0392b;
+}
+
+#restart {
+    background-color: #2ecc71;
+}
+
+#restart:hover:enabled {
+    background-color: #27ae60;
+}
