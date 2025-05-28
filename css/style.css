@@ -37,7 +37,7 @@ body {
 .container {
     text-align: center;
     background: white;
-    padding: 20px;
+    padding: 10px;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
@@ -52,7 +52,7 @@ h1 {
     margin: 20px 0;
 }
 
-select, button {
+select {
     padding: 20px;
     margin: 5px;
     font-size: 14px;
@@ -60,6 +60,21 @@ select, button {
     border: 1px solid #ccc;
     border-radius: 5px;
     cursor: pointer;
+}
+
+button {
+    padding: 40px 20px;
+    margin: 5px;
+    font-size: 14px;
+	font-weight: bold;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+	background-color: rgb(46, 204, 113);
+}
+
+button.start {
+	padding: 20px;
 }
 
 button:disabled {
@@ -101,7 +116,7 @@ button:disabled {
 }
 
 #restart {
-    background-color: #2ecc71;
+    background-color: #3498db;
 }
 
 #restart:hover:enabled {
