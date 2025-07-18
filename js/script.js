@@ -166,7 +166,7 @@ function disableButtons() {
     redFlagBtn.disabled = true;
     restartBtn.disabled = false;
 }
-// Yellow Flag logic with conditional delay for clearing and get-ready sound
+// Yellow Flag logic with conditional delay for clearing, get-ready sound, and button disable
 yellowFlagBtn.addEventListener('click', () => {
     isYellowFlag = !isYellowFlag;
     if (isYellowFlag) {
@@ -187,6 +187,12 @@ yellowFlagBtn.addEventListener('click', () => {
             yellowFlagBtn.textContent = 'Yellow Flag';
             updateBackgroundColor(); // Update background when Yellow Flag is cleared
             console.log("Yellow Flag cleared after delay (if applied)");
+            // Re-enable buttons after delay completes (only on nosteward.html)
+            if (isNoStewardPage) {
+                yellowFlagBtn.disabled = false;
+                redFlagBtn.disabled = false;
+                console.log("Buttons re-enabled after delay for Yellow Flag clear");
+            }
         };
         if (isNoStewardPage) {
             try {
@@ -195,6 +201,10 @@ yellowFlagBtn.addEventListener('click', () => {
             } catch (e) {
                 console.error("Get-ready sound failed for Yellow Flag clear:", e);
             }
+            // Disable both buttons during the delay to prevent re-clicking
+            yellowFlagBtn.disabled = true;
+            redFlagBtn.disabled = true;
+            console.log("Buttons disabled during delay for Yellow Flag clear");
             const delay = getRandomDelay();
             console.log(`Applying random delay of ${delay}ms for Yellow Flag clear on nosteward.html`);
             setTimeout(updateYellowFlagOff, delay);
@@ -208,7 +218,7 @@ yellowFlagBtn.addEventListener('click', () => {
     }
 });
 
-// Red Flag logic with conditional delay for clearing and get-ready sound
+// Red Flag logic with conditional delay for clearing, get-ready sound, and button disable
 redFlagBtn.addEventListener('click', () => {
     isRedFlag = !isRedFlag;
     if (isRedFlag) {
@@ -233,6 +243,12 @@ redFlagBtn.addEventListener('click', () => {
             redFlagBtn.textContent = 'Red Flag';
             updateBackgroundColor(); // Update background when Red Flag is cleared
             console.log("Red Flag cleared after delay (if applied)");
+            // Re-enable buttons after delay completes (only on nosteward.html)
+            if (isNoStewardPage) {
+                yellowFlagBtn.disabled = false;
+                redFlagBtn.disabled = false;
+                console.log("Buttons re-enabled after delay for Red Flag clear");
+            }
         };
         if (isNoStewardPage) {
             try {
@@ -241,6 +257,10 @@ redFlagBtn.addEventListener('click', () => {
             } catch (e) {
                 console.error("Get-ready sound failed for Red Flag clear:", e);
             }
+            // Disable both buttons during the delay to prevent re-clicking
+            yellowFlagBtn.disabled = true;
+            redFlagBtn.disabled = true;
+            console.log("Buttons disabled during delay for Red Flag clear");
             const delay = getRandomDelay();
             console.log(`Applying random delay of ${delay}ms for Red Flag clear on nosteward.html`);
             setTimeout(updateRedFlagOff, delay);
