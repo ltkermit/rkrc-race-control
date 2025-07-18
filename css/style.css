@@ -126,3 +126,28 @@ button:disabled {
 #restart:hover:enabled {
     background-color: #1c86c8;
 }
+.back-button {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+}
+
+/* Home Button */
+.back-button a {
+    display: inline-block;
+    padding: 10px 20px;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    background-color: #007bff;
+    border: none;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s;
+}
+
+.back-button a:hover {
+    background-color: #0056b3;
+}
+/* Home Button */
