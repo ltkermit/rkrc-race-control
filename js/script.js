@@ -20,7 +20,7 @@ raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
 console.log("Script loaded, start button and time selector enabled!");
 // Function to generate a random delay between 2000ms (2s) and 4000ms (4s)
 function getRandomDelay() {
-    return Math.floor(Math.random() * (4000 - 2000 + 1)) + 2000;
+    return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
 }
 // Check if the current page is nosteward.html
 const isNoStewardPage = window.location.pathname.includes('nosteward.html');
