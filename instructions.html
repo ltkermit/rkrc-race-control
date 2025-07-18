@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RKRC Race Control - Instructions</title>
+    <!-- Assuming an external stylesheet is used, adjust path if needed -->
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+              justify-content: left;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            text-align: left;
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="back-button">
+        <a href="index.html">Home</a>
+    </div>
+    <div class="container">
+        <h1><img src="img/logo-v4-no-tag.png" width="200"></h1>
+        <h1>Race Control Instructions</h1>
+        <p>Welcome to RKRC Race Control! This tool helps manage kart racing events with or without a steward. Below are instructions on how to use the program effectively.</p>
+        
+        <h2>Getting Started</h2>
+        <ul>
+            <li><strong>Choose Mode:</strong> From the home page, select "Race with a Steward" for controlled races or "Race without a Steward" for automated flag clearing with random delays.</li>
+            <li><strong>Set Race Duration:</strong> Select the desired race time from the dropdown menu before starting the race.</li>
+            <li><strong>Start the Race:</strong> Click the "Start Race" button to begin. You’ll hear engine sounds followed by beeps, and a final start beep signals the race start.</li>
+        </ul>
+        
+        <h2>During the Race</h2>
+        <ul>
+            <li><strong>Timer:</strong> The countdown timer displays the remaining race time. Audio cues play at key intervals (e.g., every minute and at 30 seconds remaining).</li>
+            <li><strong>Yellow Flag:</strong> Click "Yellow Flag" to signal caution (background turns yellow). Click "Clear Yellow Flag" to return to green. In "No Steward" mode, clearing has a random delay of 2-4 seconds after a "Get Ready" sound.</li>
+            <li><strong>Red Flag:</strong> Click "Red Flag" to stop the race (background turns red, timer pauses). Click "Clear Red Flag" to resume. In "No Steward" mode, clearing has a random delay after a "Get Ready" sound.</li>
+        </ul>
+        
+        <h2>Ending or Restarting</h2>
+        <ul>
+            <li><strong>Race End:</strong> When the timer reaches 0, the race ends with a final sound, and a checkerboard background appears.</li>
+            <li><strong>Restart:</strong> Click "Restart" at any time to reset the race to the initial settings and return to the home state.</li>
+        </ul>
+        
+        <h2>Additional Notes</h2>
+        <p>For races without a steward, the random delay in clearing flags adds unpredictability to simulate real race conditions. Ensure your device volume is on to hear audio cues. If you have questions or need support, contact the race organizer.</p>
+    </div>
+    <div class="footer">
+		<a href="https://rkrc.club" target="_blank">RKRC </a>- Code available on <a href="https://github.com/ltkermit/rkrc-race-control" target="_blank">GitHub</a>		
+	</div>
+</body>
+</html>
