@@ -5,7 +5,10 @@ https://control.rkrc.club/
 
 Code written with major assistance from Grok3 AI.
 
-Audio files created using Elevenlabs text to speech - Arthur
+Audio files created using Elevenlabs text to speech
+- Arthur (America)
+- Dexter (European)
+- Cowboy Chris (NASCAR)
 
 https://elevenlabs.io/
 

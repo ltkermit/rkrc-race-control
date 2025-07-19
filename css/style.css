@@ -11,6 +11,14 @@ body {
 
 h1 {
     color: #2f2bb2;
+    font-size: 2em;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+h2 {
+    color: #2f2bb2;
+    font-size: 1.2em;
     margin-top: 0;
     margin-bottom: 10px;
 }
@@ -190,3 +198,25 @@ button:disabled {
     background-color: #0056b3;
 }
 /* Instructions Button */
+/* Voice Selector */
+.voice-selector {
+    margin: 20px auto;
+    text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+.voice-selector label {
+    font-size: 18px;
+    margin-right: 10px;
+    color: #333;
+}
+
+.voice-selector select {
+    padding: 5px 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: white;
+    cursor: pointer;
+}
+/* Voice Selector */

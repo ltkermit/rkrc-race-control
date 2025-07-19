@@ -22,6 +22,77 @@ console.log("Script loaded, start button and time selector enabled!");
 function getRandomDelay() {
     return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
 }
+// Voice selector logic (only for steward.html)
+const voiceSelect = document.getElementById('voiceSelect');
+
+// List of audio IDs that need voice updates (excluding beep sounds)
+const voiceAudioIds = [
+    'startEnginesSound',
+    'yellowOnSound',
+    'yellowOffSound',
+    'redOnSound',
+    'redOffSound',
+    'endSound',
+    'restartSound',
+    '30-seconds',
+    '1-minute',
+    '2-minute',
+    '3-minute',
+    '4-minute',
+    '5-minute',
+    '6-minute',
+    '7-minute',
+    '8-minute',
+    '9-minute',
+    '10-minute',
+    'getReadySound',
+    // Add any other minute or specific audio IDs present in your HTML
+];
+// Function to update audio sources based on selected voice
+function updateAudioSources() {
+    const selectedVoice = voiceSelect.value;
+    console.log(`Updating audio sources to voice: ${selectedVoice}`);
+    
+    voiceAudioIds.forEach(audioId => {
+        const audioElement = document.getElementById(audioId);
+        if (audioElement) {
+            let basePath = 'audio/';
+            let prefix = '';
+            if (selectedVoice === 'america') {
+                basePath += 'america/';
+            } else if (selectedVoice === 'europe') {
+                basePath += 'europe/';
+                prefix = 'e-';
+            } else if (selectedVoice === 'merica') {
+                basePath += 'merica/';
+                prefix = 'n-';
+            }
+            // Extract the base filename from the current src or a default
+            let baseName = audioId.replace('Sound', '').toLowerCase();
+            if (baseName.includes('-')) {
+                baseName = baseName.replace('-', '-');
+            } else if (audioId === '30-seconds') {
+                baseName = '30-seconds';
+            } else if (audioId.includes('minute')) {
+                baseName = audioId.replace('-', '-');
+            }
+            const newSrc = `${basePath}${prefix}${baseName}.mp3`;
+            console.log(`Updating ${audioId} src to: ${newSrc}`);
+            audioElement.src = newSrc;
+            // Force reload of the audio file
+            audioElement.load();
+        } else {
+            console.warn(`Audio element not found for ID: ${audioId}`);
+        }
+    });
+}
+
+// Add event listener for voice selection change (only if selector exists)
+if (voiceSelect) {
+    voiceSelect.addEventListener('change', updateAudioSources);
+    // Initialize audio sources on page load based on default selection
+    updateAudioSources();
+}
 // Check if the current page is nosteward.html
 const isNoStewardPage = window.location.pathname.includes('nosteward.html');
 // Function to update background color or pattern based on state
