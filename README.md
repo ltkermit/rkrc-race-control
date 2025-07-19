@@ -12,9 +12,10 @@ Audio files created using Elevenlabs text to speech
 
 https://elevenlabs.io/
 
-![Screenshot 2025-05-25 144159](https://github.com/user-attachments/assets/6630b26a-a75e-4e7c-8d46-d95d3df307d2)
+![race-example](https://github.com/user-attachments/assets/2bce6e5c-d551-44d3-95d3-420965432a23)
 
 Features:
 - Select race length from 1 to 10 minutes.
+- Select the announcer.
 - While a race is running your mobile screen will remain on.
 - Red flag will pause the timer.
