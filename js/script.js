@@ -12,19 +12,21 @@ let isYellowFlag = false;
 let isRedFlag = false;
 let lastMinutePlayed = -1;
 let hasPlayed30Seconds = false; // Track if 30-second sound has been played
+// Flag count variables
+let yellowFlagCount = 0;
+let redFlagCount = 0;
 // Initialize NoSleep to keep screen awake on mobile devices
 const noSleep = new NoSleep();
 // Explicitly enable start button and time selector on page load
 startRaceBtn.disabled = false;
 raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
 console.log("Script loaded, start button and time selector enabled!");
-// Function to generate a random delay between 2000ms (2s) and 4000ms (4s)
+// Function to generate a random delay between 3000ms (3s) and 6000ms (6s)
 function getRandomDelay() {
     return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
 }
-// Voice selector logic (only for steward.html)
+// Voice selector logic (for any page with voiceSelect element)
 const voiceSelect = document.getElementById('voiceSelect');
-
 // List of audio IDs that need voice updates (excluding beep sounds)
 const voiceAudioIds = [
     'startEnginesSound',
@@ -45,7 +47,7 @@ const voiceAudioIds = [
     '8-minute',
     '9-minute',
     '10-minute',
-    'getReadySound',
+    'getReadySound', // Added for the "Get Ready" sound played before clearing flags
     // Add any other minute or specific audio IDs present in your HTML
 ];
 // Function to update audio sources based on selected voice
@@ -86,7 +88,6 @@ function updateAudioSources() {
         }
     });
 }
-
 // Add event listener for voice selection change (only if selector exists)
 if (voiceSelect) {
     voiceSelect.addEventListener('change', updateAudioSources);
@@ -113,6 +114,35 @@ function updateBackgroundColor() {
         document.body.style.backgroundColor = '#f0f0f0'; // Default gray when not running
     }
 }
+// Function to reset flag counts (called on start and restart)
+function resetFlagCounts() {
+    yellowFlagCount = 0;
+    redFlagCount = 0;
+    // Update UI to hide or reset counts display if needed
+    const flagCountDisplay = document.getElementById('flagCountDisplay');
+    if (flagCountDisplay) {
+        flagCountDisplay.style.display = 'none'; // Hide counts at start
+        flagCountDisplay.innerHTML = ''; // Clear any previous content
+    }
+    console.log("Flag counts reset to zero");
+}
+// Function to display flag counts at race end
+function displayFlagCounts() {
+    const flagCountDisplay = document.getElementById('flagCountDisplay');
+    if (flagCountDisplay) {
+        flagCountDisplay.style.display = 'block'; // Show the display area
+        flagCountDisplay.innerHTML = `
+            <h3>Race Summary</h3>
+            <p>Yellow Flags Thrown: ${yellowFlagCount}</p>
+            <p>Red Flags Thrown: ${redFlagCount}</p>
+        `;
+        console.log(`Race ended. Yellow Flags: ${yellowFlagCount}, Red Flags: ${redFlagCount}`);
+    } else {
+        // Fallback to alert if the display element is not found
+        alert(`Race Ended!\nYellow Flags Thrown: ${yellowFlagCount}\nRed Flags Thrown: ${redFlagCount}`);
+        console.warn("Flag count display element not found, using alert as fallback");
+    }
+}
 // Start race with updated sequence
 startRaceBtn.addEventListener('click', () => {
     totalSeconds = parseInt(raceTimeSelect.value) * 60;
@@ -123,6 +153,7 @@ startRaceBtn.addEventListener('click', () => {
     yellowFlagBtn.disabled = false;
     redFlagBtn.disabled = false;
     restartBtn.disabled = false;
+    resetFlagCounts(); // Reset flag counts at race start
     // Enable NoSleep to keep screen awake during the race
     try {
         noSleep.enable();
@@ -187,6 +218,7 @@ function startTimer() {
             }
             updateBackgroundColor(); // Update background when race ends (apply checkerboard)
             disableButtons();
+            displayFlagCounts(); // Display flag counts when race ends
             // Disable NoSleep when race ends
             try {
                 noSleep.disable();
@@ -247,6 +279,8 @@ yellowFlagBtn.addEventListener('click', () => {
             console.error("Yellow on sound failed:", e);
         }
         yellowFlagBtn.textContent = 'Clear Yellow Flag';
+        yellowFlagCount++; // Increment count when Yellow Flag is thrown
+        console.log(`Yellow Flag thrown. Total count: ${yellowFlagCount}`);
         updateBackgroundColor(); // Update background immediately when Yellow Flag is set
     } else {
         const updateYellowFlagOff = () => {
@@ -288,7 +322,6 @@ yellowFlagBtn.addEventListener('click', () => {
         updateBackgroundColor(); // Already updated if flag is set, but ensure consistency
     }
 });
-
 // Red Flag logic with conditional delay for clearing, get-ready sound, and button disable
 redFlagBtn.addEventListener('click', () => {
     isRedFlag = !isRedFlag;
@@ -301,6 +334,8 @@ redFlagBtn.addEventListener('click', () => {
         isRunning = false;
         clearInterval(timerInterval);
         redFlagBtn.textContent = 'Clear Red Flag';
+        redFlagCount++; // Increment count when Red Flag is thrown
+        console.log(`Red Flag thrown. Total count: ${redFlagCount}`);
         updateBackgroundColor(); // Update background immediately when Red Flag is set
     } else {
         const updateRedFlagOff = () => {
@@ -346,6 +381,7 @@ redFlagBtn.addEventListener('click', () => {
 });
 // Restart logic
 restartBtn.addEventListener('click', () => {
+    console.log("Restart button clicked");
     clearInterval(timerInterval);
     isRunning = false;
     secondsLeft = totalSeconds;
@@ -355,12 +391,13 @@ restartBtn.addEventListener('click', () => {
     yellowFlagBtn.textContent = 'Yellow Flag';
     redFlagBtn.textContent = 'Red Flag';
     raceTimeSelect.disabled = false; // Enable time selector on restart
-    startRaceBtn.disabled = false;
-    yellowFlagBtn.disabled = true;
+    startRaceBtn.disabled = false; // Enable start button
+    yellowFlagBtn.disabled = true; // Disable flag buttons until race starts
     redFlagBtn.disabled = true;
-    restartBtn.disabled = true;
+    restartBtn.disabled = true; // Disable restart until race starts again
     lastMinutePlayed = -1;
     hasPlayed30Seconds = false; // Reset 30-second sound flag on restart
+    resetFlagCounts(); // Reset flag counts on restart
     try {
         document.getElementById('restartSound').play().catch(e => console.error("Audio play error:", e));
     } catch (e) {
