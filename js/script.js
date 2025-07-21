@@ -21,6 +21,12 @@ const noSleep = new NoSleep();
 startRaceBtn.disabled = false;
 raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
 console.log("Script loaded, start button and time selector enabled!");
+// Detect if running on Apple device or Safari for audio debugging
+const isAppleDevice = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+if (isAppleDevice || isSafari) {
+    console.log("Running on Apple device or Safari. Audio playback may require user interaction.");
+}
 // Function to generate a random delay between 3000ms (3s) and 6000ms (6s)
 function getRandomDelay() {
     return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
@@ -83,6 +89,20 @@ function updateAudioSources() {
             audioElement.src = newSrc;
             // Force reload of the audio file
             audioElement.load();
+            // Attempt to play a tiny bit to ensure preload on Apple devices
+            if (isAppleDevice || isSafari) {
+                try {
+                    audioElement.play().then(() => {
+                        audioElement.pause(); // Pause immediately to avoid audible sound
+                        audioElement.currentTime = 0; // Reset to start
+                        console.log(`Pre-played ${audioId} to ensure loading on Apple/Safari`);
+                    }).catch(e => {
+                        console.warn(`Pre-play failed for ${audioId} on Apple/Safari:`, e);
+                    });
+                } catch (e) {
+                    console.error(`Error pre-playing ${audioId}:`, e);
+                }
+            }
         } else {
             console.warn(`Audio element not found for ID: ${audioId}`);
         }
@@ -145,6 +165,7 @@ function displayFlagCounts() {
 }
 // Start race with updated sequence
 startRaceBtn.addEventListener('click', () => {
+    console.log("Start Race button clicked - initializing audio permissions if needed");
     totalSeconds = parseInt(raceTimeSelect.value) * 60;
     secondsLeft = totalSeconds;
     updateTimerDisplay();
@@ -161,12 +182,38 @@ startRaceBtn.addEventListener('click', () => {
     } catch (e) {
         console.error("Failed to enable screen wake lock:", e);
     }
-    // Step 0: Play start-engines.mp3 immediately on button click
-    try {
-        console.log("Playing start-engines sound immediately");
-        document.getElementById('startEnginesSound').play().catch(e => console.error("Audio play error for start-engines:", e));
-    } catch (e) {
-        console.error("Start-engines sound failed:", e);
+    // Attempt to initialize audio permissions on Apple devices/Safari
+    if (isAppleDevice || isSafari) {
+        try {
+            // Play a short audio to unlock permissions (can be a silent or short beep)
+            const startSound = document.getElementById('startEnginesSound');
+            if (startSound) {
+                startSound.play().then(() => {
+                    console.log("Audio permissions unlocked with start-engines sound");
+                }).catch(e => {
+                    console.error("Failed to unlock audio permissions with start-engines:", e);
+                });
+            }
+            // Preload critical audio files to ensure they are ready
+            const criticalAudioIds = ['beepSound', 'startBeepSound', 'startEnginesSound'];
+            criticalAudioIds.forEach(id => {
+                const audio = document.getElementById(id);
+                if (audio) {
+                    audio.load();
+                    console.log(`Preloaded audio: ${id}`);
+                }
+            });
+        } catch (e) {
+            console.error("Error initializing audio permissions:", e);
+        }
+    } else {
+        // Step 0: Play start-engines.mp3 immediately on button click for non-Apple devices
+        try {
+            console.log("Playing start-engines sound immediately");
+            document.getElementById('startEnginesSound').play().catch(e => console.error("Audio play error for start-engines:", e));
+        } catch (e) {
+            console.error("Start-engines sound failed:", e);
+        }
     }
     // Step 1: Wait 3 seconds before starting the beep sequence
     setTimeout(() => {
