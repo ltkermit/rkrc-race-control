@@ -87,21 +87,12 @@ function updateAudioSources() {
             const newSrc = `${basePath}${prefix}${baseName}.mp3`;
             console.log(`Updating ${audioId} src to: ${newSrc}`);
             audioElement.src = newSrc;
-            // Force reload of the audio file
-            audioElement.load();
-            // Attempt to play a tiny bit to ensure preload on Apple devices
-            if (isAppleDevice || isSafari) {
-                try {
-                    audioElement.play().then(() => {
-                        audioElement.pause(); // Pause immediately to avoid audible sound
-                        audioElement.currentTime = 0; // Reset to start
-                        console.log(`Pre-played ${audioId} to ensure loading on Apple/Safari`);
-                    }).catch(e => {
-                        console.warn(`Pre-play failed for ${audioId} on Apple/Safari:`, e);
-                    });
-                } catch (e) {
-                    console.error(`Error pre-playing ${audioId}:`, e);
-                }
+            // Force reload of the audio file without playing
+            try {
+                audioElement.load();
+                console.log(`Loaded audio for ${audioId}`);
+            } catch (e) {
+                console.error(`Error loading audio for ${audioId}:`, e);
             }
         } else {
             console.warn(`Audio element not found for ID: ${audioId}`);
@@ -182,38 +173,34 @@ startRaceBtn.addEventListener('click', () => {
     } catch (e) {
         console.error("Failed to enable screen wake lock:", e);
     }
-    // Attempt to initialize audio permissions on Apple devices/Safari
-    if (isAppleDevice || isSafari) {
-        try {
-            // Play a short audio to unlock permissions (can be a silent or short beep)
-            const startSound = document.getElementById('startEnginesSound');
-            if (startSound) {
-                startSound.play().then(() => {
-                    console.log("Audio permissions unlocked with start-engines sound");
-                }).catch(e => {
-                    console.error("Failed to unlock audio permissions with start-engines:", e);
-                });
-            }
-            // Preload critical audio files to ensure they are ready
-            const criticalAudioIds = ['beepSound', 'startBeepSound', 'startEnginesSound'];
-            criticalAudioIds.forEach(id => {
-                const audio = document.getElementById(id);
-                if (audio) {
+    // Attempt to initialize audio permissions on Apple devices/Safari with user interaction
+    try {
+        const startSound = document.getElementById('startEnginesSound');
+        if (startSound) {
+            console.log("Playing start-engines sound to unlock audio permissions");
+            startSound.play().then(() => {
+                console.log("Audio permissions unlocked with start-engines sound");
+            }).catch(e => {
+                console.error("Failed to unlock audio permissions with start-engines:", e);
+            });
+        } else {
+            console.warn("startEnginesSound element not found for audio initialization");
+        }
+        // Preload critical audio files to ensure they are ready, without playing
+        const criticalAudioIds = ['beepSound', 'startBeepSound', 'yellowOnSound', 'redOnSound'];
+        criticalAudioIds.forEach(id => {
+            const audio = document.getElementById(id);
+            if (audio) {
+                try {
                     audio.load();
                     console.log(`Preloaded audio: ${id}`);
+                } catch (e) {
+                    console.error(`Error preloading audio ${id}:`, e);
                 }
-            });
-        } catch (e) {
-            console.error("Error initializing audio permissions:", e);
-        }
-    } else {
-        // Step 0: Play start-engines.mp3 immediately on button click for non-Apple devices
-        try {
-            console.log("Playing start-engines sound immediately");
-            document.getElementById('startEnginesSound').play().catch(e => console.error("Audio play error for start-engines:", e));
-        } catch (e) {
-            console.error("Start-engines sound failed:", e);
-        }
+            }
+        });
+    } catch (e) {
+        console.error("Error initializing audio permissions:", e);
     }
     // Step 1: Wait 3 seconds before starting the beep sequence
     setTimeout(() => {
@@ -223,7 +210,12 @@ startRaceBtn.addEventListener('click', () => {
             if (beepCount < 4) {
                 try {
                     console.log(`Playing beep ${beepCount + 1}/4`);
-                    document.getElementById('beepSound').play().catch(e => console.error("Audio play error for beep:", e));
+                    const beepSound = document.getElementById('beepSound');
+                    if (beepSound) {
+                        beepSound.play().catch(e => console.error("Audio play error for beep:", e));
+                    } else {
+                        console.warn("beepSound element not found");
+                    }
                 } catch (e) {
                     console.error("Beep sound failed:", e);
                 }
@@ -236,7 +228,12 @@ startRaceBtn.addEventListener('click', () => {
                     // Step 4: Play start-beep.mp3 and start the timer
                     try {
                         console.log("Playing start-beep and starting timer");
-                        document.getElementById('startBeepSound').play().catch(e => console.error("Audio play error for start-beep:", e));
+                        const startBeepSound = document.getElementById('startBeepSound');
+                        if (startBeepSound) {
+                            startBeepSound.play().catch(e => console.error("Audio play error for start-beep:", e));
+                        } else {
+                            console.warn("startBeepSound element not found");
+                        }
                     } catch (e) {
                         console.error("Start-beep sound failed:", e);
                     }
