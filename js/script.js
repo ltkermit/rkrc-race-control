@@ -31,57 +31,6 @@ const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 if (isAppleDevice || isSafari) {
     console.log("Running on Apple device or Safari. Audio playback may require user interaction.");
 }
-// Audio Unlock Modal Logic for Safari/Apple Devices
-function initializeAudioUnlockModal() {
-    const unlockModal = document.getElementById('audioUnlockModal');
-    const unlockButton = document.getElementById('unlockAudioButton');
-    
-    if (unlockModal && unlockButton && (isAppleDevice || isSafari)) {
-        console.log("Showing audio unlock modal for Safari/Apple device users");
-        unlockModal.style.display = 'flex'; // Show modal on page load for Safari users
-        
-        unlockButton.addEventListener('click', () => {
-            console.log("User clicked to unlock audio");
-            // Resume Audio Context if suspended
-            if (audioContext && audioContext.state === 'suspended') {
-                try {
-                    audioContext.resume().then(() => {
-                        console.log("AudioContext resumed successfully");
-                    }).catch(e => {
-                        console.error("Failed to resume AudioContext:", e);
-                    });
-                } catch (e) {
-                    console.error("Error resuming AudioContext:", e);
-                }
-            }
-            // Play a short audio to unlock permissions
-            try {
-                const startSound = document.getElementById('startEnginesSound') || document.getElementById('beepSound');
-                if (startSound) {
-                    startSound.play().then(() => {
-                        console.log("Audio permissions unlocked with initial sound");
-                        startSound.pause(); // Pause to avoid playing full sound
-                        startSound.currentTime = 0; // Reset to start
-                    }).catch(e => {
-                        console.error("Failed to unlock audio permissions with initial sound:", e);
-                    });
-                } else {
-                    console.warn("No audio element found for unlocking permissions");
-                }
-            } catch (e) {
-                console.error("Error unlocking audio permissions:", e);
-            }
-            // Hide the modal after click
-            unlockModal.style.display = 'none';
-        });
-    } else if (unlockModal) {
-        console.log("Not on Safari/Apple device, hiding audio unlock modal");
-        unlockModal.style.display = 'none'; // Hide modal for non-Safari users
-    }
-}
-
-// Call initialization on page load
-window.addEventListener('load', initializeAudioUnlockModal);
 // Initialize Web Audio Context for better control on Safari
 let audioContext = null;
 try {
@@ -221,7 +170,19 @@ function displayFlagCounts() {
     }
 }
 // Utility function to play audio with retry mechanism for Safari reliability
-function playAudioWithRetry(audioId, retries = 1, delayMs = 500) {
+function playAudioWithRetry(audioId, retries = 2, delayMs = 500) {
+    // Check and resume Audio Context before playback attempt
+    if (audioContext && audioContext.state === 'suspended') {
+        try {
+            audioContext.resume().then(() => {
+                console.log("AudioContext resumed before playing audio");
+            }).catch(e => {
+                console.error("Failed to resume AudioContext before playing audio:", e);
+            });
+        } catch (e) {
+            console.error("Error resuming AudioContext before playing audio:", e);
+        }
+    }
     const audio = document.getElementById(audioId);
     if (!audio) {
         console.warn(`Audio element not found for ID: ${audioId}`);
@@ -242,6 +203,56 @@ function playAudioWithRetry(audioId, retries = 1, delayMs = 500) {
         }
     });
 }
+// Audio Unlock Modal Logic for Safari/Apple Devices
+function initializeAudioUnlockModal() {
+    const unlockModal = document.getElementById('audioUnlockModal');
+    const unlockButton = document.getElementById('unlockAudioButton');
+    
+    if (unlockModal && unlockButton && (isAppleDevice || isSafari)) {
+        console.log("Showing audio unlock modal for Safari/Apple device users");
+        unlockModal.style.display = 'flex'; // Show modal on page load for Safari users
+        
+        unlockButton.addEventListener('click', () => {
+            console.log("User clicked to unlock audio");
+            // Resume Audio Context if suspended
+            if (audioContext && audioContext.state === 'suspended') {
+                try {
+                    audioContext.resume().then(() => {
+                        console.log("AudioContext resumed successfully");
+                    }).catch(e => {
+                        console.error("Failed to resume AudioContext:", e);
+                    });
+                } catch (e) {
+                    console.error("Error resuming AudioContext:", e);
+                }
+            }
+            // Play a short audio to unlock permissions
+            try {
+                const startSound = document.getElementById('startEnginesSound') || document.getElementById('beepSound');
+                if (startSound) {
+                    startSound.play().then(() => {
+                        console.log("Audio permissions unlocked with initial sound");
+                        startSound.pause(); // Pause to avoid playing full sound
+                        startSound.currentTime = 0; // Reset to start
+                    }).catch(e => {
+                        console.error("Failed to unlock audio permissions with initial sound:", e);
+                    });
+                } else {
+                    console.warn("No audio element found for unlocking permissions");
+                }
+            } catch (e) {
+                console.error("Error unlocking audio permissions:", e);
+            }
+            // Hide the modal after click
+            unlockModal.style.display = 'none';
+        });
+    } else if (unlockModal) {
+        console.log("Not on Safari/Apple device, hiding audio unlock modal");
+        unlockModal.style.display = 'none'; // Hide modal for non-Safari users
+    }
+}
+// Call initialization on page load
+window.addEventListener('load', initializeAudioUnlockModal);
 // Start race with updated sequence
 startRaceBtn.addEventListener('click', () => {
     console.log("Start Race button clicked - initializing audio if needed");
@@ -374,7 +385,7 @@ function startTimer() {
             isRunning = false;
             try {
                 console.log("Playing end sound");
-                playAudioWithRetry('endSound').catch(e => {
+                playAudioWithRetry('endSound', 3, 500).catch(e => { // Increased retries for end sound
                     console.error("Failed to play end sound after retries:", e);
                 });
             } catch (e) {
@@ -406,7 +417,7 @@ function checkTimeMarks() {
         try {
             const audioId = `${currentMinute}-minute`;
             console.log(`Playing audio for ${currentMinute} minute(s) left: ${audioId}`);
-            playAudioWithRetry(audioId).catch(e => {
+            playAudioWithRetry(audioId, 3, 500).catch(e => { // Increased retries for minute markers
                 console.error(`Failed to play ${audioId} after retries:`, e);
             });
             lastMinutePlayed = currentMinute;
@@ -418,7 +429,7 @@ function checkTimeMarks() {
     if (secondsLeft === 30 && !hasPlayed30Seconds) {
         try {
             console.log("Playing audio for 30 seconds left");
-            playAudioWithRetry('30-seconds').catch(e => {
+            playAudioWithRetry('30-seconds', 3, 500).catch(e => { // Increased retries for 30-seconds
                 console.error("Failed to play 30-seconds after retries:", e);
             });
             hasPlayed30Seconds = true; // Mark as played to avoid repeats
