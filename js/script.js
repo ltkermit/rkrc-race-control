@@ -26,7 +26,7 @@ function getRandomDelay() {
     return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
 }
 // Detect if running on Apple device or Safari for audio debugging
-const isAppleDevice = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+const isAppleDevice = /iPhone|iPad|iPod/.test(navigator.userAgent); // Focus on iOS devices
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 if (isAppleDevice || isSafari) {
     console.log("Running on Apple device or Safari. Audio playback may require user interaction.");
@@ -169,6 +169,37 @@ function displayFlagCounts() {
         console.warn("Flag count display element not found, using alert as fallback");
     }
 }
+// Function to show visual notification for audio events (fallback for iOS/Safari)
+function showVisualNotification(message, durationMs = 3000) {
+    const notificationContainer = document.getElementById('visualNotificationContainer');
+    if (notificationContainer) {
+        const notification = document.createElement('div');
+        notification.className = 'visual-notification';
+        notification.textContent = message;
+        notification.style.cssText = `
+            background-color: #fff;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            margin: 10px auto;
+            text-align: center;
+            max-width: 300px;
+            animation: fadeInOut ${durationMs/1000}s forwards;
+        `;
+        notificationContainer.appendChild(notification);
+        console.log(`Showing visual notification: ${message}`);
+        setTimeout(() => {
+            notification.remove();
+        }, durationMs);
+    } else {
+        console.warn("Visual notification container not found, using console log as fallback");
+        console.log(`[Visual Notification]: ${message}`);
+    }
+}
 // Utility function to play audio with retry mechanism for Safari reliability
 function playAudioWithRetry(audioId, retries = 2, delayMs = 500) {
     // Check and resume Audio Context before playback attempt
@@ -251,8 +282,38 @@ function initializeAudioUnlockModal() {
         unlockModal.style.display = 'none'; // Hide modal for non-Safari users
     }
 }
+// Handle dismissal of Firefox recommendation message
+function initializeFirefoxRecommendationDismissal() {
+    const dismissButton = document.getElementById('dismissRecommendation');
+    const firefoxRecommendation = document.getElementById('firefoxRecommendation');
+    if (dismissButton && firefoxRecommendation) {
+        dismissButton.addEventListener('click', () => {
+            firefoxRecommendation.style.display = 'none';
+            console.log("Firefox recommendation dismissed by user");
+        });
+    }
+}
 // Call initialization on page load
 window.addEventListener('load', initializeAudioUnlockModal);
+window.addEventListener('load', initializeFirefoxRecommendationDismissal);
+// Detect iOS Safari and show Firefox recommendation
+if (isAppleDevice && isSafari) {
+    console.log("Running on iOS device with Safari. Recommending Firefox for best audio experience.");
+    window.addEventListener('load', () => {
+        const firefoxRecommendation = document.getElementById('firefoxRecommendation');
+        if (firefoxRecommendation) {
+            firefoxRecommendation.style.display = 'block'; // Show recommendation message
+            console.log("Firefox recommendation message displayed for iOS Safari users");
+        } else {
+            console.warn("Firefox recommendation element not found, using alert as fallback");
+            alert("For the best audio experience on iOS, we recommend using Firefox. Download it from the App Store for full race sound support.");
+        }
+    });
+} else if (isAppleDevice) {
+    console.log("Running on iOS device but not Safari. No Firefox recommendation needed.");
+} else {
+    console.log("Not on iOS device, no Firefox recommendation needed.");
+}
 // Start race with updated sequence
 startRaceBtn.addEventListener('click', () => {
     console.log("Start Race button clicked - initializing audio if needed");
@@ -324,22 +385,22 @@ startRaceBtn.addEventListener('click', () => {
                         beepSound.play().then(() => {
                             beepSound.onended = () => {
                                 beepCount++;
-                                setTimeout(playNextBeep, 1500); // Wait before next beep
+                                setTimeout(playNextBeep, 1000); // Wait before next beep
                             };
                         }).catch(e => {
                             console.error("Audio play error for beep:", e);
                             beepCount++;
-                            setTimeout(playNextBeep, 1500); // Continue even if error
+                            setTimeout(playNextBeep, 1000); // Continue even if error
                         });
                     } else {
                         console.warn("beepSound element not found");
                         beepCount++;
-                        setTimeout(playNextBeep, 1500);
+                        setTimeout(playNextBeep, 1000);
                     }
                 } catch (e) {
                     console.error("Beep sound failed:", e);
                     beepCount++;
-                    setTimeout(playNextBeep, 1500);
+                    setTimeout(playNextBeep, 1000);
                 }
             } else {
                 // Step 3: Wait random 2-3 seconds after last beep
@@ -387,9 +448,11 @@ function startTimer() {
                 console.log("Playing end sound");
                 playAudioWithRetry('endSound', 3, 500).catch(e => { // Increased retries for end sound
                     console.error("Failed to play end sound after retries:", e);
+                    showVisualNotification("Race Ended!", 5000); // Visual fallback if audio fails
                 });
             } catch (e) {
                 console.error("End sound failed:", e);
+                showVisualNotification("Race Ended!", 5000); // Visual fallback if audio fails
             }
             updateBackgroundColor(); // Update background when race ends (apply checkerboard)
             disableButtons();
@@ -419,10 +482,12 @@ function checkTimeMarks() {
             console.log(`Playing audio for ${currentMinute} minute(s) left: ${audioId}`);
             playAudioWithRetry(audioId, 3, 500).catch(e => { // Increased retries for minute markers
                 console.error(`Failed to play ${audioId} after retries:`, e);
+                showVisualNotification(`${currentMinute} Minute(s) Left`, 3000); // Visual fallback if audio fails
             });
             lastMinutePlayed = currentMinute;
         } catch (e) {
             console.error(`Error playing ${currentMinute}-minute sound:`, e);
+            showVisualNotification(`${currentMinute} Minute(s) Left`, 3000); // Visual fallback if audio fails
         }
     }
     // Check for 30-second mark
@@ -431,10 +496,12 @@ function checkTimeMarks() {
             console.log("Playing audio for 30 seconds left");
             playAudioWithRetry('30-seconds', 3, 500).catch(e => { // Increased retries for 30-seconds
                 console.error("Failed to play 30-seconds after retries:", e);
+                showVisualNotification("30 Seconds Left", 3000); // Visual fallback if audio fails
             });
             hasPlayed30Seconds = true; // Mark as played to avoid repeats
         } catch (e) {
             console.error("30-seconds sound failed:", e);
+            showVisualNotification("30 Seconds Left", 3000); // Visual fallback if audio fails
         }
     }
 }
@@ -451,9 +518,11 @@ yellowFlagBtn.addEventListener('click', () => {
             console.log("Playing yellow-on sound");
             playAudioWithRetry('yellowOnSound').catch(e => {
                 console.error("Failed to play yellow-on sound after retries:", e);
+                showVisualNotification("Yellow Flag Thrown", 2000); // Visual fallback if audio fails
             });
         } catch (e) {
             console.error("Yellow on sound failed:", e);
+            showVisualNotification("Yellow Flag Thrown", 2000); // Visual fallback if audio fails
         }
         yellowFlagBtn.textContent = 'Clear Yellow Flag';
         yellowFlagCount++; // Increment count when Yellow Flag is thrown
@@ -465,9 +534,11 @@ yellowFlagBtn.addEventListener('click', () => {
                 console.log("Playing yellow-off sound");
                 playAudioWithRetry('yellowOffSound').catch(e => {
                     console.error("Failed to play yellow-off sound after retries:", e);
+                    showVisualNotification("Yellow Flag Cleared", 2000); // Visual fallback if audio fails
                 });
             } catch (e) {
                 console.error("Yellow off sound failed:", e);
+                showVisualNotification("Yellow Flag Cleared", 2000); // Visual fallback if audio fails
             }
             yellowFlagBtn.textContent = 'Yellow Flag';
             updateBackgroundColor(); // Update background when Yellow Flag is cleared
@@ -484,9 +555,11 @@ yellowFlagBtn.addEventListener('click', () => {
                 console.log("Playing get-ready sound before delay for Yellow Flag clear");
                 playAudioWithRetry('getReadySound').catch(e => {
                     console.error("Failed to play get-ready sound after retries:", e);
+                    showVisualNotification("Get Ready for Green Flag", 2000); // Visual fallback if audio fails
                 });
             } catch (e) {
                 console.error("Get-ready sound failed for Yellow Flag clear:", e);
+                showVisualNotification("Get Ready for Green Flag", 2000); // Visual fallback if audio fails
             }
             // Disable both buttons during the delay to prevent re-clicking
             yellowFlagBtn.disabled = true;
@@ -512,9 +585,11 @@ redFlagBtn.addEventListener('click', () => {
             console.log("Playing red-on sound");
             playAudioWithRetry('redOnSound').catch(e => {
                 console.error("Failed to play red-on sound after retries:", e);
+                showVisualNotification("Red Flag Thrown", 2000); // Visual fallback if audio fails
             });
         } catch (e) {
             console.error("Red on sound failed:", e);
+            showVisualNotification("Red Flag Thrown", 2000); // Visual fallback if audio fails
         }
         isRunning = false;
         clearInterval(timerInterval);
@@ -528,9 +603,11 @@ redFlagBtn.addEventListener('click', () => {
                 console.log("Playing red-off sound");
                 playAudioWithRetry('redOffSound').catch(e => {
                     console.error("Failed to play red-off sound after retries:", e);
+                    showVisualNotification("Red Flag Cleared", 2000); // Visual fallback if audio fails
                 });
             } catch (e) {
                 console.error("Red off sound failed:", e);
+                showVisualNotification("Red Flag Cleared", 2000); // Visual fallback if audio fails
             }
             isRunning = true;
             startTimer();
@@ -549,9 +626,11 @@ redFlagBtn.addEventListener('click', () => {
                 console.log("Playing get-ready sound before delay for Red Flag clear");
                 playAudioWithRetry('getReadySound').catch(e => {
                     console.error("Failed to play get-ready sound after retries for Red Flag:", e);
+                    showVisualNotification("Get Ready for Green Flag", 2000); // Visual fallback if audio fails
                 });
             } catch (e) {
                 console.error("Get-ready sound failed for Red Flag clear:", e);
+                showVisualNotification("Get Ready for Green Flag", 2000); // Visual fallback if audio fails
             }
             // Disable both buttons during the delay to prevent re-clicking
             yellowFlagBtn.disabled = true;
@@ -592,9 +671,11 @@ restartBtn.addEventListener('click', () => {
         console.log("Playing restart sound");
         playAudioWithRetry('restartSound').catch(e => {
             console.error("Failed to play restart sound after retries:", e);
+            showVisualNotification("Race Restarted", 2000); // Visual fallback if audio fails
         });
     } catch (e) {
         console.error("Restart sound failed:", e);
+        showVisualNotification("Race Restarted", 2000); // Visual fallback if audio fails
     }
     updateBackgroundColor(); // Update background when race is restarted (remove checkerboard)
     // Disable NoSleep when race is restarted
