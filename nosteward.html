@@ -14,6 +14,13 @@
     <div class="back-button">
         <a href="index.html">Home</a>
     </div>
+    <div id="audioUnlockModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; justify-content: center; align-items: center; flex-direction: column;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 80%; box-shadow: 0 0 15px rgba(0,0,0,0.3);">
+            <h2 style="margin: 0 0 15px 0; font-family: Arial, sans-serif; color: #333;">Enable Audio for Race Sounds</h2>
+            <p style="margin: 0 0 20px 0; font-family: Arial, sans-serif; color: #555;">Tap the button below to enable audio playback for race events and announcements.</p>
+            <button id="unlockAudioButton" style="padding: 10px 20px; font-size: 18px; font-weight: bold; color: white; background-color: #007bff; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;">Enable Audio</button>
+        </div>
+    </div>
     <div class="container">
 		<img src="img/logo-v4-no-tag.png" width="200">
         <h1>Race Control</h1>

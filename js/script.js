@@ -21,15 +21,81 @@ const noSleep = new NoSleep();
 startRaceBtn.disabled = false;
 raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
 console.log("Script loaded, start button and time selector enabled!");
+// Function to generate a random delay between 3000ms (3s) and 6000ms (6s)
+function getRandomDelay() {
+    return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
+}
 // Detect if running on Apple device or Safari for audio debugging
 const isAppleDevice = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 if (isAppleDevice || isSafari) {
     console.log("Running on Apple device or Safari. Audio playback may require user interaction.");
 }
-// Function to generate a random delay between 3000ms (3s) and 6000ms (6s)
-function getRandomDelay() {
-    return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
+// Audio Unlock Modal Logic for Safari/Apple Devices
+function initializeAudioUnlockModal() {
+    const unlockModal = document.getElementById('audioUnlockModal');
+    const unlockButton = document.getElementById('unlockAudioButton');
+    
+    if (unlockModal && unlockButton && (isAppleDevice || isSafari)) {
+        console.log("Showing audio unlock modal for Safari/Apple device users");
+        unlockModal.style.display = 'flex'; // Show modal on page load for Safari users
+        
+        unlockButton.addEventListener('click', () => {
+            console.log("User clicked to unlock audio");
+            // Resume Audio Context if suspended
+            if (audioContext && audioContext.state === 'suspended') {
+                try {
+                    audioContext.resume().then(() => {
+                        console.log("AudioContext resumed successfully");
+                    }).catch(e => {
+                        console.error("Failed to resume AudioContext:", e);
+                    });
+                } catch (e) {
+                    console.error("Error resuming AudioContext:", e);
+                }
+            }
+            // Play a short audio to unlock permissions
+            try {
+                const startSound = document.getElementById('startEnginesSound') || document.getElementById('beepSound');
+                if (startSound) {
+                    startSound.play().then(() => {
+                        console.log("Audio permissions unlocked with initial sound");
+                        startSound.pause(); // Pause to avoid playing full sound
+                        startSound.currentTime = 0; // Reset to start
+                    }).catch(e => {
+                        console.error("Failed to unlock audio permissions with initial sound:", e);
+                    });
+                } else {
+                    console.warn("No audio element found for unlocking permissions");
+                }
+            } catch (e) {
+                console.error("Error unlocking audio permissions:", e);
+            }
+            // Hide the modal after click
+            unlockModal.style.display = 'none';
+        });
+    } else if (unlockModal) {
+        console.log("Not on Safari/Apple device, hiding audio unlock modal");
+        unlockModal.style.display = 'none'; // Hide modal for non-Safari users
+    }
+}
+
+// Call initialization on page load
+window.addEventListener('load', initializeAudioUnlockModal);
+// Initialize Web Audio Context for better control on Safari
+let audioContext = null;
+try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+        audioContext = new AudioContext();
+        if (audioContext.state === 'suspended') {
+            console.log("AudioContext is suspended. Will resume on user interaction.");
+        }
+    } else {
+        console.warn("Web Audio API not supported in this browser.");
+    }
+} catch (e) {
+    console.error("Error initializing AudioContext:", e);
 }
 // Voice selector logic (for any page with voiceSelect element)
 const voiceSelect = document.getElementById('voiceSelect');
@@ -154,9 +220,31 @@ function displayFlagCounts() {
         console.warn("Flag count display element not found, using alert as fallback");
     }
 }
+// Utility function to play audio with retry mechanism for Safari reliability
+function playAudioWithRetry(audioId, retries = 1, delayMs = 500) {
+    const audio = document.getElementById(audioId);
+    if (!audio) {
+        console.warn(`Audio element not found for ID: ${audioId}`);
+        return Promise.reject(new Error(`Audio element ${audioId} not found`));
+    }
+    console.log(`Attempting to play audio: ${audioId}`);
+    return audio.play().then(() => {
+        console.log(`Successfully played audio: ${audioId}`);
+    }).catch(error => {
+        console.error(`Failed to play audio ${audioId}:`, error);
+        if (retries > 0) {
+            console.log(`Retrying playback for ${audioId}. Retries left: ${retries}`);
+            return new Promise(resolve => setTimeout(resolve, delayMs))
+                .then(() => playAudioWithRetry(audioId, retries - 1, delayMs));
+        } else {
+            console.error(`All retries failed for ${audioId}`);
+            throw error;
+        }
+    });
+}
 // Start race with updated sequence
 startRaceBtn.addEventListener('click', () => {
-    console.log("Start Race button clicked - initializing audio permissions if needed");
+    console.log("Start Race button clicked - initializing audio if needed");
     totalSeconds = parseInt(raceTimeSelect.value) * 60;
     secondsLeft = totalSeconds;
     updateTimerDisplay();
@@ -173,21 +261,31 @@ startRaceBtn.addEventListener('click', () => {
     } catch (e) {
         console.error("Failed to enable screen wake lock:", e);
     }
-    // Attempt to initialize audio permissions on Apple devices/Safari with user interaction
+    // Resume Audio Context if still suspended (in case modal wasn't clicked)
+    if (audioContext && audioContext.state === 'suspended') {
+        try {
+            audioContext.resume().then(() => {
+                console.log("AudioContext resumed successfully");
+            }).catch(e => {
+                console.error("Failed to resume AudioContext:", e);
+            });
+        } catch (e) {
+            console.error("Error resuming AudioContext:", e);
+        }
+    }
+    // Attempt to play start-engines sound
     try {
         const startSound = document.getElementById('startEnginesSound');
         if (startSound) {
-            console.log("Playing start-engines sound to unlock audio permissions");
-            startSound.play().then(() => {
-                console.log("Audio permissions unlocked with start-engines sound");
-            }).catch(e => {
-                console.error("Failed to unlock audio permissions with start-engines:", e);
+            console.log("Playing start-engines sound");
+            playAudioWithRetry('startEnginesSound').catch(e => {
+                console.error("Failed to play start-engines sound after retries:", e);
             });
         } else {
-            console.warn("startEnginesSound element not found for audio initialization");
+            console.warn("startEnginesSound element not found");
         }
         // Preload critical audio files to ensure they are ready, without playing
-        const criticalAudioIds = ['beepSound', 'startBeepSound', 'yellowOnSound', 'redOnSound'];
+        const criticalAudioIds = ['beepSound', 'startBeepSound', 'yellowOnSound', 'redOnSound', 'getReadySound'];
         criticalAudioIds.forEach(id => {
             const audio = document.getElementById(id);
             if (audio) {
@@ -200,28 +298,39 @@ startRaceBtn.addEventListener('click', () => {
             }
         });
     } catch (e) {
-        console.error("Error initializing audio permissions:", e);
+        console.error("Error initializing audio:", e);
     }
     // Step 1: Wait 3 seconds before starting the beep sequence
     setTimeout(() => {
         // Step 2: Play beep.mp3 every 1.5 seconds for 4 times
         let beepCount = 0;
-        const beepInterval = setInterval(() => {
+        const playNextBeep = () => {
             if (beepCount < 4) {
                 try {
                     console.log(`Playing beep ${beepCount + 1}/4`);
                     const beepSound = document.getElementById('beepSound');
                     if (beepSound) {
-                        beepSound.play().catch(e => console.error("Audio play error for beep:", e));
+                        beepSound.play().then(() => {
+                            beepSound.onended = () => {
+                                beepCount++;
+                                setTimeout(playNextBeep, 1500); // Wait before next beep
+                            };
+                        }).catch(e => {
+                            console.error("Audio play error for beep:", e);
+                            beepCount++;
+                            setTimeout(playNextBeep, 1500); // Continue even if error
+                        });
                     } else {
                         console.warn("beepSound element not found");
+                        beepCount++;
+                        setTimeout(playNextBeep, 1500);
                     }
                 } catch (e) {
                     console.error("Beep sound failed:", e);
+                    beepCount++;
+                    setTimeout(playNextBeep, 1500);
                 }
-                beepCount++;
             } else {
-                clearInterval(beepInterval); // Stop after 4 beeps
                 // Step 3: Wait random 2-3 seconds after last beep
                 const randomFinalDelay = Math.floor(Math.random() * 2000) + 1000; // Random delay between 2000-3000ms (2-3 seconds)
                 setTimeout(() => {
@@ -230,7 +339,14 @@ startRaceBtn.addEventListener('click', () => {
                         console.log("Playing start-beep and starting timer");
                         const startBeepSound = document.getElementById('startBeepSound');
                         if (startBeepSound) {
-                            startBeepSound.play().catch(e => console.error("Audio play error for start-beep:", e));
+                            startBeepSound.play().catch(e => {
+                                console.error("Audio play error for start-beep:", e);
+                                // Retry once if it fails
+                                setTimeout(() => {
+                                    console.log("Retrying start-beep playback");
+                                    startBeepSound.play().catch(retryError => console.error("Retry failed for start-beep:", retryError));
+                                }, 500);
+                            });
                         } else {
                             console.warn("startBeepSound element not found");
                         }
@@ -242,7 +358,8 @@ startRaceBtn.addEventListener('click', () => {
                     startTimer();
                 }, randomFinalDelay);
             }
-        }, 1500); // Beep every 1.5 seconds
+        };
+        playNextBeep(); // Start the beep sequence
     }, 3000); // Initial 3-second delay
 });
 // Timer logic
@@ -256,7 +373,10 @@ function startTimer() {
             clearInterval(timerInterval);
             isRunning = false;
             try {
-                document.getElementById('endSound').play().catch(e => console.error("Audio play error:", e));
+                console.log("Playing end sound");
+                playAudioWithRetry('endSound').catch(e => {
+                    console.error("Failed to play end sound after retries:", e);
+                });
             } catch (e) {
                 console.error("End sound failed:", e);
             }
@@ -286,22 +406,21 @@ function checkTimeMarks() {
         try {
             const audioId = `${currentMinute}-minute`;
             console.log(`Playing audio for ${currentMinute} minute(s) left: ${audioId}`);
-            const audioElement = document.getElementById(audioId);
-            if (audioElement) {
-                audioElement.play().catch(e => console.error(`Audio play error for ${audioId}:`, e));
-            } else {
-                console.error(`Audio element not found for ${audioId}`);
-            }
+            playAudioWithRetry(audioId).catch(e => {
+                console.error(`Failed to play ${audioId} after retries:`, e);
+            });
+            lastMinutePlayed = currentMinute;
         } catch (e) {
             console.error(`Error playing ${currentMinute}-minute sound:`, e);
         }
-        lastMinutePlayed = currentMinute;
     }
     // Check for 30-second mark
     if (secondsLeft === 30 && !hasPlayed30Seconds) {
         try {
             console.log("Playing audio for 30 seconds left");
-            document.getElementById('30-seconds').play().catch(e => console.error("Audio play error for 30-seconds:", e));
+            playAudioWithRetry('30-seconds').catch(e => {
+                console.error("Failed to play 30-seconds after retries:", e);
+            });
             hasPlayed30Seconds = true; // Mark as played to avoid repeats
         } catch (e) {
             console.error("30-seconds sound failed:", e);
@@ -318,7 +437,10 @@ yellowFlagBtn.addEventListener('click', () => {
     isYellowFlag = !isYellowFlag;
     if (isYellowFlag) {
         try {
-            document.getElementById('yellowOnSound').play().catch(e => console.error("Audio play error:", e));
+            console.log("Playing yellow-on sound");
+            playAudioWithRetry('yellowOnSound').catch(e => {
+                console.error("Failed to play yellow-on sound after retries:", e);
+            });
         } catch (e) {
             console.error("Yellow on sound failed:", e);
         }
@@ -329,7 +451,10 @@ yellowFlagBtn.addEventListener('click', () => {
     } else {
         const updateYellowFlagOff = () => {
             try {
-                document.getElementById('yellowOffSound').play().catch(e => console.error("Audio play error:", e));
+                console.log("Playing yellow-off sound");
+                playAudioWithRetry('yellowOffSound').catch(e => {
+                    console.error("Failed to play yellow-off sound after retries:", e);
+                });
             } catch (e) {
                 console.error("Yellow off sound failed:", e);
             }
@@ -346,7 +471,9 @@ yellowFlagBtn.addEventListener('click', () => {
         if (isNoStewardPage) {
             try {
                 console.log("Playing get-ready sound before delay for Yellow Flag clear");
-                document.getElementById('getReadySound').play().catch(e => console.error("Audio play error for get-ready:", e));
+                playAudioWithRetry('getReadySound').catch(e => {
+                    console.error("Failed to play get-ready sound after retries:", e);
+                });
             } catch (e) {
                 console.error("Get-ready sound failed for Yellow Flag clear:", e);
             }
@@ -371,7 +498,10 @@ redFlagBtn.addEventListener('click', () => {
     isRedFlag = !isRedFlag;
     if (isRedFlag) {
         try {
-            document.getElementById('redOnSound').play().catch(e => console.error("Audio play error:", e));
+            console.log("Playing red-on sound");
+            playAudioWithRetry('redOnSound').catch(e => {
+                console.error("Failed to play red-on sound after retries:", e);
+            });
         } catch (e) {
             console.error("Red on sound failed:", e);
         }
@@ -384,7 +514,10 @@ redFlagBtn.addEventListener('click', () => {
     } else {
         const updateRedFlagOff = () => {
             try {
-                document.getElementById('redOffSound').play().catch(e => console.error("Audio play error:", e));
+                console.log("Playing red-off sound");
+                playAudioWithRetry('redOffSound').catch(e => {
+                    console.error("Failed to play red-off sound after retries:", e);
+                });
             } catch (e) {
                 console.error("Red off sound failed:", e);
             }
@@ -403,7 +536,9 @@ redFlagBtn.addEventListener('click', () => {
         if (isNoStewardPage) {
             try {
                 console.log("Playing get-ready sound before delay for Red Flag clear");
-                document.getElementById('getReadySound').play().catch(e => console.error("Audio play error for get-ready:", e));
+                playAudioWithRetry('getReadySound').catch(e => {
+                    console.error("Failed to play get-ready sound after retries for Red Flag:", e);
+                });
             } catch (e) {
                 console.error("Get-ready sound failed for Red Flag clear:", e);
             }
@@ -443,7 +578,10 @@ restartBtn.addEventListener('click', () => {
     hasPlayed30Seconds = false; // Reset 30-second sound flag on restart
     resetFlagCounts(); // Reset flag counts on restart
     try {
-        document.getElementById('restartSound').play().catch(e => console.error("Audio play error:", e));
+        console.log("Playing restart sound");
+        playAudioWithRetry('restartSound').catch(e => {
+            console.error("Failed to play restart sound after retries:", e);
+        });
     } catch (e) {
         console.error("Restart sound failed:", e);
     }
