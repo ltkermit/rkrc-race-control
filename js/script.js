@@ -4,6 +4,7 @@ const timerDisplay = document.getElementById('timer');
 const yellowFlagBtn = document.getElementById('yellowFlag');
 const redFlagBtn = document.getElementById('redFlag');
 const restartBtn = document.getElementById('restart');
+const voiceSelect = document.getElementById('voiceSelect');
 let totalSeconds = 0;
 let secondsLeft = 0;
 let timerInterval = null;
@@ -47,7 +48,6 @@ try {
     console.error("Error initializing AudioContext:", e);
 }
 // Voice selector logic (for any page with voiceSelect element)
-const voiceSelect = document.getElementById('voiceSelect');
 // List of audio IDs that need voice updates (excluding beep sounds)
 const voiceAudioIds = [
     'startEnginesSound',

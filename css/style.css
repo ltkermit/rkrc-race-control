@@ -1,3 +1,4 @@
+/* General Styles */
 body {
     font-family: Arial, sans-serif;
     display: flex;
@@ -6,7 +7,18 @@ body {
     height: 100vh;
     margin: 0;
     background-color: #f0f0f0;
+    position: relative;
     transition: background-color 0.5s ease, background 0.5s ease; /* Add transition for background changes */
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    text-align: center;
 }
 
 h1 {
@@ -27,10 +39,7 @@ p {
     line-height: 1.6;
     color: #555;
 }
-.version {
-    font-size: .7em;
-    color: #a6a6a6;
-}
+
 ul {
     margin: 10px 0;
     padding-left: 20px;
@@ -40,55 +49,9 @@ li {
     color: #555;
 }
 
-.footer {
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  color: #a6a6a6;
-  text-align: center;
-  
-}
-
-.footer a {
-  color: #a6a6a6;
-  font-weight: bold;
-  text-decoration: none;
-}
-
-/* Checkerboard pattern for race end */
-.checkerboard {
-    background: 
-        linear-gradient(45deg, black 25%, transparent 25%, transparent 75%, black 75%, black),
-        linear-gradient(45deg, black 25%, white 25%, white 75%, black 75%, black);
-    background-size: 200px 200px; /* Size of the checkerboard squares */
-    background-position: 0 0, 100px 100px; /* Offset for the second gradient to create checkerboard */
-}
-
-.container {
-    text-align: center;
-    background: white;
-    padding: 10px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.settings {
-    margin: 10px 0;
-}
-
-label {
-	font-size: 18px;
-}
-
-select {
-    padding: 20px;
-    margin: 5px;
-    font-size: 14px;
-	font-weight: bold;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    cursor: pointer;
+.version {
+    font-size: .7em;
+    color: #a6a6a6;
 }
 
 button {
@@ -102,62 +65,18 @@ button {
 	background-color: rgb(46, 204, 113);
 }
 
-button.start {
-	padding: 20px;
-}
-
 button:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
-    opacity: 0.6;
 }
 
-.timer {
-    font-size: 48px;
-    margin: 10px 0;
-    color: #2c3e50;
-}
-
-.controls button {
-    width: 120px;
-    background-color: #3498db;
-    color: white;
-    border: none;
-}
-
-.controls button:hover:enabled {
-    background-color: #2980b9;
-}
-
-#yellowFlag {
-    background-color: #f1c40f;
-}
-
-#yellowFlag:hover:enabled {
-    background-color: #f39c12;
-}
-
-#redFlag {
-    background-color: #e74c3c;
-}
-
-#redFlag:hover:enabled {
-    background-color: #c0392b;
-}
-
-#restart {
-    background-color: #3498db;
-}
-
-#restart:hover:enabled {
-    background-color: #1c86c8;
-}
+/* Navigation Buttons (Back to Home, Instructions) */
 .back-button {
     position: absolute;
     top: 20px;
     left: 20px;
 }
 
-/* Home Button */
 .back-button a {
     display: inline-block;
     padding: 10px 20px;
@@ -175,33 +94,91 @@ button:disabled {
 .back-button a:hover {
     background-color: #0056b3;
 }
-/* Home Button */
 
-/* Instructions Button */
-.instructions-button {
-    position: absolute;
-    top: 20px;
-    right: 20px;
+/* Race Control UI Elements */
+.settings {
+    margin-bottom: 20px;
 }
 
-.instructions-button a {
-    display: inline-block;
-    padding: 10px 20px;
-    font-family: Arial, sans-serif;
+.settings label {
+    font-size: 18px;
+    margin-right: 10px;
+    color: #333;
+}
+
+.settings select {
+    padding: 5px 10px;
     font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: white;
+    cursor: pointer;
+}
+
+.start {
+    padding: 10px 20px;
+    font-size: 24px;
     font-weight: bold;
     color: white;
-    background-color: #007bff;
+    background-color: #28a745;
     border: none;
     border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s;
+    margin-left: 10px;
 }
 
-.instructions-button a:hover {
-    background-color: #0056b3;
+.start:hover {
+    background-color: #218838;
 }
-/* Instructions Button */
+
+.timer {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 20px 0;
+    color: #333;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.controls button {
+    padding: 40px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    min-width: 120px;
+    width: 120px;
+}
+
+#yellowFlag {
+    background-color: #f1c40f;
+}
+
+#yellowFlag:hover {
+    background-color: #dab10e;
+}
+
+#redFlag {
+    background-color: #e74c3c;
+}
+
+#redFlag:hover {
+    background-color: #c0392b;
+}
+
+#restart {
+    background-color: #6c757d;
+}
+
+#restart:hover {
+    background-color: #5a6268;
+}
+
 /* Voice Selector */
 .voice-selector {
     margin: 20px auto;
@@ -223,8 +200,8 @@ button:disabled {
     background-color: white;
     cursor: pointer;
 }
-/* Voice Selector */
-/* Results Display */
+
+/* Flag Count Display */
 #flagCountDisplay {
     background-color: #fff;
     border: 1px solid #ccc;
@@ -246,8 +223,95 @@ button:disabled {
     font-size: 16px;
     color: #555;
 }
-/* Results Display */
-/* Firefox on iOS */
+
+/* Audio Unlock Modal */
+#audioUnlockModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+#audioUnlockModal div {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 80%;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+}
+
+#audioUnlockModal h2 {
+    margin: 0 0 15px 0;
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+
+#audioUnlockModal p {
+    margin: 0 0 20px 0;
+    font-family: Arial, sans-serif;
+    color: #555;
+}
+
+#unlockAudioButton {
+    padding: 10px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    background-color: #007bff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#unlockAudioButton:hover {
+    background-color: #0056b3;
+}
+
+/* Firefox Recommendation Message */
+#firefoxRecommendation {
+    display: none;
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    color: #856404;
+    padding: 10px;
+    margin: 10px 0;
+    text-align: center;
+    border-radius: 5px;
+    font-family: Arial, sans-serif;
+    max-width: 90%;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#firefoxRecommendation p {
+    margin: 0;
+}
+
+#dismissRecommendation {
+    margin-top: 5px;
+    padding: 5px 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+#dismissRecommendation:hover {
+    background-color: #0056b3;
+}
+
+/* Visual Notifications for Audio Fallback */
 @keyframes fadeInOut {
     0% { opacity: 0; transform: translateY(-20px); }
     10% { opacity: 1; transform: translateY(0); }
@@ -281,4 +345,24 @@ button:disabled {
     align-items: center;
     pointer-events: none;
 }
-/* Firefox on iOS */
+
+/* Footer */
+.footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    margin-top: 30px;
+    font-size: 14px;
+    color: #666;
+}
+
+.footer a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
