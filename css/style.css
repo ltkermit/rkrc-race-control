@@ -155,6 +155,15 @@ button:disabled {
     width: 120px;
 }
 
+/* Checkerboard pattern for race end */
+.checkerboard {
+    background: 
+        linear-gradient(45deg, black 25%, transparent 25%, transparent 75%, black 75%, black),
+        linear-gradient(45deg, black 25%, white 25%, white 75%, black 75%, black);
+    background-size: 200px 200px; /* Size of the checkerboard squares */
+    background-position: 0 0, 100px 100px; /* Offset for the second gradient to create checkerboard */
+}
+
 #yellowFlag {
     background-color: #f1c40f;
 }
