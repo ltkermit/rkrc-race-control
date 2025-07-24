@@ -12,6 +12,7 @@ A simple web based and mobile friendly racing timer.
   - When racing without a steward, green flags are randomly thrown after clearing a flag.
   - When racing with a steward, green flags are thrown as soon the steward clears a flag.
 - Audible time remaing callouts at every minute and the last 30 seconds.
+- Practice mode can be enabled to disable the countdown.
 - While a race is running your mobile screen will remain on.
 - Red flags pause the timer.
 
@@ -23,7 +24,7 @@ Do to security features in Safari, audio files do not play reliably. I recommend
 I will continue to work on workarounds, but if anyone has epxerince with this, please send me a message.
 
 ## Development
-Code written with major assistance from Grok3 AI.
+Code written with major assistance from Grok3 and Claude 4 AI.
 
 Audio files created using Elevenlabs text to speech
 - Arthur (America)
