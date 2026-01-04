@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PWA Status Diagnostic for RKRC Race Control">
+    <title>PWA Status - RKRC Race Control</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="img/favicon.ico">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f0f0;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .status-box {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .status-item {
+            padding: 8px;
+            margin: 5px 0;
+            border-left: 4px solid #ccc;
+            padding-left: 12px;
+        }
+        .status-item.success {
+            border-left-color: #2ecc71;
+            background-color: #e8f8f5;
+        }
+        .status-item.error {
+            border-left-color: #e74c3c;
+            background-color: #fadbd8;
+        }
+        .status-item.warning {
+            border-left-color: #f1c40f;
+            background-color: #fef5e7;
+        }
+        h1 {
+            color: #2f2bb2;
+        }
+        h2 {
+            color: #2f2bb2;
+            margin-top: 20px;
+        }
+        .refresh-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .refresh-btn:hover {
+            background-color: #0056b3;
+        }
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+        .back-button a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            background-color: #007bff;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        #cached-files {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="back-button">
+        <a href="index.html">← Home</a>
+    </div>
+
+    <h1>PWA Status Diagnostic</h1>
+    <p>This page shows the current status of the Progressive Web App functionality.</p>
+
+    <button class="refresh-btn" onclick="runDiagnostic()">🔄 Refresh Status</button>
+
+    <div class="status-box">
+        <h2>Basic Information</h2>
+        <div id="basic-info"></div>
+    </div>
+
+    <div class="status-box">
+        <h2>Service Worker Status</h2>
+        <div id="sw-status"></div>
+    </div>
+
+    <div class="status-box">
+        <h2>Cache Status</h2>
+        <div id="cache-status"></div>
+    </div>
+
+    <div class="status-box">
+        <h2>Cached Files</h2>
+        <div id="cached-files"></div>
+    </div>
+
+    <div class="status-box">
+        <h2>What This Means</h2>
+        <div id="interpretation"></div>
+    </div>
+
+    <script>
+        async function runDiagnostic() {
+            const basicInfo = document.getElementById('basic-info');
+            const swStatus = document.getElementById('sw-status');
+            const cacheStatus = document.getElementById('cache-status');
+            const cachedFiles = document.getElementById('cached-files');
+            const interpretation = document.getElementById('interpretation');
+
+            // Basic Info
+            let basicHTML = '';
+            basicHTML += `<div class="status-item ${window.location.protocol === 'https:' ? 'success' : 'error'}">`;
+            basicHTML += `Protocol: <code>${window.location.protocol}</code>`;
+            basicHTML += window.location.protocol === 'https:' ? ' ✅' : ' ❌ (HTTPS required)';
+            basicHTML += `</div>`;
+
+            basicHTML += `<div class="status-item ${navigator.onLine ? 'success' : 'warning'}">`;
+            basicHTML += `Online Status: <code>${navigator.onLine ? 'Online' : 'Offline'}</code>`;
+            basicHTML += `</div>`;
+
+            basicHTML += `<div class="status-item ${'serviceWorker' in navigator ? 'success' : 'error'}">`;
+            basicHTML += `Service Worker Support: ${'serviceWorker' in navigator ? '✅ Supported' : '❌ Not Supported'}`;
+            basicHTML += `</div>`;
+
+            basicInfo.innerHTML = basicHTML;
+
+            // Service Worker Status
+            let swHTML = '';
+            try {
+                if ('serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.getRegistration();
+
+                    if (registration) {
+                        swHTML += `<div class="status-item success">Registration: ✅ Found</div>`;
+
+                        if (registration.active) {
+                            swHTML += `<div class="status-item success">State: <code>${registration.active.state}</code> ✅</div>`;
+                            swHTML += `<div class="status-item success">Script: <code>${registration.active.scriptURL}</code></div>`;
+                        } else if (registration.installing) {
+                            swHTML += `<div class="status-item warning">State: Installing ⏳</div>`;
+                        } else if (registration.waiting) {
+                            swHTML += `<div class="status-item warning">State: Waiting for activation ⏳</div>`;
+                        } else {
+                            swHTML += `<div class="status-item error">State: Unknown ❌</div>`;
+                        }
+
+                        swHTML += `<div class="status-item">Scope: <code>${registration.scope}</code></div>`;
+                    } else {
+                        swHTML += `<div class="status-item error">Registration: ❌ Not Found</div>`;
+                        swHTML += `<div class="status-item error">The service worker is not registered. This means PWA offline functionality will not work.</div>`;
+                    }
+                } else {
+                    swHTML += `<div class="status-item error">Service workers not supported in this browser</div>`;
+                }
+            } catch (error) {
+                swHTML += `<div class="status-item error">Error checking service worker: ${error.message}</div>`;
+            }
+            swStatus.innerHTML = swHTML;
+
+            // Cache Status
+            let cacheHTML = '';
+            let fileList = '';
+            try {
+                const cacheNames = await caches.keys();
+
+                if (cacheNames.length > 0) {
+                    cacheHTML += `<div class="status-item success">Caches Found: <code>${cacheNames.length}</code> ✅</div>`;
+
+                    for (const name of cacheNames) {
+                        const cache = await caches.open(name);
+                        const keys = await cache.keys();
+
+                        cacheHTML += `<div class="status-item">Cache: <code>${name}</code></div>`;
+                        cacheHTML += `<div class="status-item ${keys.length > 0 ? 'success' : 'error'}">`;
+                        cacheHTML += `Files cached: <code>${keys.length}</code> ${keys.length > 0 ? '✅' : '❌'}`;
+                        cacheHTML += `</div>`;
+
+                        fileList += `<strong>Cache: ${name}</strong><br>`;
+                        if (keys.length > 0) {
+                            keys.forEach(request => {
+                                fileList += `✓ ${request.url}<br>`;
+                            });
+                        } else {
+                            fileList += `<em>No files cached</em><br>`;
+                        }
+                        fileList += `<br>`;
+                    }
+                } else {
+                    cacheHTML += `<div class="status-item error">No Caches Found ❌</div>`;
+                    cacheHTML += `<div class="status-item error">The service worker has not cached any files yet. Offline functionality will not work.</div>`;
+                    fileList = '<em>No cached files found</em>';
+                }
+            } catch (error) {
+                cacheHTML += `<div class="status-item error">Error checking cache: ${error.message}</div>`;
+                fileList = `<em>Error: ${error.message}</em>`;
+            }
+            cacheStatus.innerHTML = cacheHTML;
+            cachedFiles.innerHTML = fileList;
+
+            // Interpretation
+            let interpHTML = '';
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                const cacheNames = await caches.keys();
+
+                if (!('serviceWorker' in navigator)) {
+                    interpHTML += `<div class="status-item error">`;
+                    interpHTML += `<strong>❌ Service Workers Not Supported</strong><br>`;
+                    interpHTML += `Your browser doesn't support service workers. PWA offline functionality will not work. Try using a modern browser like Safari (iOS 11.3+), Chrome, or Firefox.`;
+                    interpHTML += `</div>`;
+                } else if (!registration) {
+                    interpHTML += `<div class="status-item error">`;
+                    interpHTML += `<strong>❌ Service Worker Not Registered</strong><br>`;
+                    interpHTML += `The service worker failed to register. Possible causes:<br>`;
+                    interpHTML += `• Site not served over HTTPS<br>`;
+                    interpHTML += `• JavaScript error preventing registration<br>`;
+                    interpHTML += `• service-worker.js file not found<br><br>`;
+                    interpHTML += `<strong>Solution:</strong> Check that you're accessing the site via HTTPS (https://control.rkrc.club).`;
+                    interpHTML += `</div>`;
+                } else if (cacheNames.length === 0) {
+                    interpHTML += `<div class="status-item warning">`;
+                    interpHTML += `<strong>⚠️ Service Worker Registered But No Cache</strong><br>`;
+                    interpHTML += `The service worker is registered but hasn't cached any files yet.<br><br>`;
+                    interpHTML += `<strong>This usually means:</strong><br>`;
+                    interpHTML += `• Service worker is still installing/activating<br>`;
+                    interpHTML += `• Files failed to download<br>`;
+                    interpHTML += `• Network error during caching<br><br>`;
+                    interpHTML += `<strong>Solution:</strong> Wait 30 seconds and refresh this page. If still empty, there may be a network or path issue.`;
+                    interpHTML += `</div>`;
+                } else {
+                    const cache = await caches.open(cacheNames[0]);
+                    const keys = await cache.keys();
+
+                    if (keys.length > 50) {
+                        interpHTML += `<div class="status-item success">`;
+                        interpHTML += `<strong>✅ PWA Fully Functional!</strong><br>`;
+                        interpHTML += `${keys.length} files are cached. The app should work completely offline.<br><br>`;
+                        interpHTML += `<strong>To test offline:</strong><br>`;
+                        interpHTML += `1. Turn on Airplane Mode<br>`;
+                        interpHTML += `2. Refresh this page or go to index.html<br>`;
+                        interpHTML += `3. App should load from cache<br><br>`;
+                        interpHTML += `<strong>To install as app:</strong><br>`;
+                        interpHTML += `Safari → Share → Add to Home Screen`;
+                        interpHTML += `</div>`;
+                    } else {
+                        interpHTML += `<div class="status-item warning">`;
+                        interpHTML += `<strong>⚠️ Partial Cache</strong><br>`;
+                        interpHTML += `Only ${keys.length} files cached (expected ~90+).<br>`;
+                        interpHTML += `Some files may have failed to cache. Try refreshing the main page and waiting for all resources to load.`;
+                        interpHTML += `</div>`;
+                    }
+                }
+            } catch (error) {
+                interpHTML += `<div class="status-item error">Error: ${error.message}</div>`;
+            }
+            interpretation.innerHTML = interpHTML;
+        }
+
+        // Run diagnostic on page load
+        window.addEventListener('load', runDiagnostic);
+    </script>
+</body>
+</html>
