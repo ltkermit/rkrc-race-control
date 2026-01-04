@@ -11,6 +11,8 @@ const urlsToCache = [
   '/steward.html',
   '/nosteward.html',
   '/instructions.html',
+  '/pwa-status.html',
+  '/sw-test.html',
   '/css/style.css',
   '/js/script.js',
   '/js/noSleep.min.js',

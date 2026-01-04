@@ -130,7 +130,24 @@
         </ul>
     </div>
     <div class="footer">
-        <a href="https://rkrc.club" target="_blank">RKRC </a>- Code available on <a href="https://github.com/ltkermit/rkrc-race-control" target="_blank">GitHub</a>        
+        <a href="https://rkrc.club" target="_blank">RKRC </a>- Code available on <a href="https://github.com/ltkermit/rkrc-race-control" target="_blank">GitHub</a>
     </div>
+
+    <script>
+        // Register service worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('[PWA] ServiceWorker registered successfully:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('[PWA] ServiceWorker registration failed:', error);
+                    });
+            });
+        } else {
+            console.log('[PWA] Service workers are not supported in this browser');
+        }
+    </script>
 </body>
 </html>

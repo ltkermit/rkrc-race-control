@@ -132,6 +132,19 @@
     </div>
 
     <script>
+        // Register service worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('[PWA] ServiceWorker registered successfully:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('[PWA] ServiceWorker registration failed:', error);
+                    });
+            });
+        }
+
         async function runDiagnostic() {
             const basicInfo = document.getElementById('basic-info');
             const swStatus = document.getElementById('sw-status');

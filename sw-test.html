@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Worker Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .result {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ccc;
+        }
+        .success { border-left-color: #2ecc71; background: #e8f8f5; }
+        .error { border-left-color: #e74c3c; background: #fadbd8; }
+        .warning { border-left-color: #f1c40f; background: #fef5e7; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        h1 { color: #2f2bb2; }
+    </style>
+</head>
+<body>
+    <h1>Service Worker Registration Test</h1>
+    <p>This page will help diagnose why the service worker isn't registering.</p>
+
+    <button onclick="testServiceWorkerFile()">1. Check if service-worker.js exists</button>
+    <button onclick="testRegistration()">2. Try to register service worker</button>
+    <button onclick="checkExisting()">3. Check existing registration</button>
+
+    <div id="results"></div>
+
+    <script>
+        // Register service worker for PWA functionality (this page tests if it works)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('[PWA] ServiceWorker registered successfully:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('[PWA] ServiceWorker registration failed:', error);
+                    });
+            });
+        }
+
+        const results = document.getElementById('results');
+
+        function log(message, type = 'result') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+
+        function clear() {
+            results.innerHTML = '';
+        }
+
+        async function testServiceWorkerFile() {
+            clear();
+            log('<strong>Test 1: Checking if service-worker.js file exists...</strong>');
+
+            try {
+                const response = await fetch('/service-worker.js');
+
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    const text = await response.text();
+
+                    log(`✅ File found! Status: ${response.status}`, 'success');
+                    log(`Content-Type: <code>${contentType}</code>`);
+
+                    if (contentType && contentType.includes('javascript')) {
+                        log(`✅ MIME type is correct`, 'success');
+                    } else {
+                        log(`⚠️ MIME type might be wrong. Expected: application/javascript or text/javascript`, 'warning');
+                    }
+
+                    log(`File size: ${text.length} bytes`);
+                    log(`First 200 characters:<pre>${text.substring(0, 200)}...</pre>`);
+
+                    if (text.includes('RKRC Race Control')) {
+                        log(`✅ File content looks correct (contains "RKRC Race Control")`, 'success');
+                    }
+                } else {
+                    log(`❌ File not found! Status: ${response.status}`, 'error');
+                    log(`The service-worker.js file is not accessible at /service-worker.js`, 'error');
+                    log(`Make sure the file is deployed to the root of your website.`, 'warning');
+                }
+            } catch (error) {
+                log(`❌ Error fetching file: ${error.message}`, 'error');
+            }
+        }
+
+        async function testRegistration() {
+            clear();
+            log('<strong>Test 2: Attempting to register service worker...</strong>');
+
+            // Check support first
+            if (!('serviceWorker' in navigator)) {
+                log('❌ Service workers not supported in this browser', 'error');
+                return;
+            }
+
+            log('✅ Service worker API is supported', 'success');
+
+            try {
+                log('Attempting registration with path: <code>/service-worker.js</code>');
+
+                const registration = await navigator.serviceWorker.register('/service-worker.js', {
+                    scope: '/'
+                });
+
+                log('✅ Registration successful!', 'success');
+                log(`Scope: <code>${registration.scope}</code>`);
+                log(`Installing: ${registration.installing ? 'Yes' : 'No'}`);
+                log(`Waiting: ${registration.waiting ? 'Yes' : 'No'}`);
+                log(`Active: ${registration.active ? 'Yes' : 'No'}`);
+
+                if (registration.installing) {
+                    log('Service worker is installing... wait a few seconds', 'warning');
+
+                    registration.installing.addEventListener('statechange', function(e) {
+                        log(`State changed to: <code>${e.target.state}</code>`);
+                    });
+                }
+
+                if (registration.active) {
+                    log(`Active worker state: <code>${registration.active.state}</code>`, 'success');
+                }
+
+                // Wait a bit and check again
+                setTimeout(async () => {
+                    const reg = await navigator.serviceWorker.getRegistration();
+                    if (reg && reg.active) {
+                        log('✅ Service worker is now active!', 'success');
+                        log('Try checking pwa-status.html again', 'success');
+                    }
+                }, 3000);
+
+            } catch (error) {
+                log(`❌ Registration failed!`, 'error');
+                log(`Error: <code>${error.message}</code>`, 'error');
+                log(`Error name: <code>${error.name}</code>`);
+
+                if (error.message.includes('MIME')) {
+                    log('⚠️ This is a MIME type error. Your server is sending the wrong content-type for service-worker.js', 'error');
+                    log('Solution: Configure your server to send <code>Content-Type: application/javascript</code> for .js files', 'warning');
+                } else if (error.message.includes('SecurityError')) {
+                    log('⚠️ Security error. Make sure you\'re on HTTPS', 'error');
+                } else if (error.message.includes('404') || error.message.includes('not found')) {
+                    log('⚠️ File not found error. The service-worker.js file is not accessible', 'error');
+                } else {
+                    log('Full error details:', 'error');
+                    log(`<pre>${JSON.stringify(error, null, 2)}</pre>`);
+                }
+            }
+        }
+
+        async function checkExisting() {
+            clear();
+            log('<strong>Test 3: Checking for existing service worker registration...</strong>');
+
+            if (!('serviceWorker' in navigator)) {
+                log('❌ Service workers not supported', 'error');
+                return;
+            }
+
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+
+                if (registration) {
+                    log('✅ Found existing registration!', 'success');
+                    log(`Scope: <code>${registration.scope}</code>`);
+                    log(`Update found: ${registration.updatefound ? 'Yes' : 'No'}`);
+
+                    if (registration.installing) {
+                        log(`Installing: <code>${registration.installing.scriptURL}</code>`, 'warning');
+                        log(`State: <code>${registration.installing.state}</code>`);
+                    }
+
+                    if (registration.waiting) {
+                        log(`Waiting: <code>${registration.waiting.scriptURL}</code>`, 'warning');
+                        log(`State: <code>${registration.waiting.state}</code>`);
+                    }
+
+                    if (registration.active) {
+                        log(`✅ Active: <code>${registration.active.scriptURL}</code>`, 'success');
+                        log(`State: <code>${registration.active.state}</code>`, 'success');
+                        log('Service worker is active and should be caching files!', 'success');
+                    } else {
+                        log('⚠️ No active service worker yet', 'warning');
+                    }
+                } else {
+                    log('❌ No service worker registration found', 'error');
+                    log('Try running Test 2 to register one', 'warning');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run test 1 on load
+        window.addEventListener('load', () => {
+            setTimeout(testServiceWorkerFile, 500);
+        });
+    </script>
+</body>
+</html>
