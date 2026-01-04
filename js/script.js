@@ -45,6 +45,9 @@ if (isAppleDevice || isSafari) {
 
 // Initialize Web Audio Context for better control on Safari
 let audioContext = null;
+let audioBuffers = {}; // Store decoded audio buffers
+let bufferLoadPromises = {}; // Track loading promises to avoid duplicates
+
 try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (AudioContext) {
@@ -57,6 +60,137 @@ try {
     }
 } catch (e) {
     console.error("Error initializing AudioContext:", e);
+}
+
+// Function to load and decode a single audio file into a buffer
+async function loadAudioBuffer(audioId) {
+    if (!audioContext) {
+        console.warn("AudioContext not available, cannot load buffer for:", audioId);
+        return null;
+    }
+
+    // Return existing buffer if already loaded
+    if (audioBuffers[audioId]) {
+        console.log(`Audio buffer already loaded: ${audioId}`);
+        return audioBuffers[audioId];
+    }
+
+    // Return existing promise if currently loading
+    if (bufferLoadPromises[audioId]) {
+        console.log(`Audio buffer currently loading: ${audioId}`);
+        return bufferLoadPromises[audioId];
+    }
+
+    // Get the URL from the HTML audio element
+    const audioElement = document.getElementById(audioId);
+    if (!audioElement) {
+        console.warn(`Audio element not found for ID: ${audioId}`);
+        return null;
+    }
+
+    const url = audioElement.src;
+    console.log(`Loading audio buffer for ${audioId} from ${url}`);
+
+    // Create and store the loading promise
+    bufferLoadPromises[audioId] = (async () => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            audioBuffers[audioId] = audioBuffer;
+            console.log(`✓ Successfully loaded buffer for: ${audioId}`);
+            return audioBuffer;
+        } catch (error) {
+            console.error(`Failed to load audio buffer for ${audioId}:`, error);
+            delete bufferLoadPromises[audioId]; // Allow retry
+            return null;
+        }
+    })();
+
+    return bufferLoadPromises[audioId];
+}
+
+// Function to play an audio buffer using Web Audio API
+function playBuffer(audioId) {
+    if (!audioContext || !audioBuffers[audioId]) {
+        console.warn(`Buffer not available for ${audioId}, falling back to HTML5 Audio`);
+        return Promise.reject(new Error(`Buffer not loaded for ${audioId}`));
+    }
+
+    try {
+        // Resume context if suspended
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffers[audioId];
+        source.connect(audioContext.destination);
+        source.start(0);
+
+        console.log(`Playing buffer: ${audioId}`);
+
+        // Return a promise that resolves when the buffer finishes playing
+        return new Promise((resolve) => {
+            source.onended = () => {
+                console.log(`Finished playing buffer: ${audioId}`);
+                resolve();
+            };
+        });
+    } catch (error) {
+        console.error(`Error playing buffer for ${audioId}:`, error);
+        return Promise.reject(error);
+    }
+}
+
+// Preload all critical audio files as buffers
+async function preloadAudioBuffers() {
+    if (!audioContext) {
+        console.warn("AudioContext not available, skipping buffer preload");
+        return;
+    }
+
+    console.log("Preloading audio buffers for iOS/Safari...");
+
+    // List of critical audio files to preload
+    const criticalAudioIds = [
+        'beepSound',
+        'startBeepSound',
+        'startEnginesSound',
+        'yellowOnSound',
+        'yellowOffSound',
+        'redOnSound',
+        'redOffSound',
+        'endSound',
+        'restartSound',
+        'getReadySound',
+        '30-seconds',
+        '1-minute',
+        '2-minute',
+        '3-minute',
+        '4-minute',
+        '5-minute',
+        '6-minute',
+        '7-minute',
+        '8-minute',
+        '9-minute'
+    ];
+
+    // Load all buffers in parallel
+    const loadPromises = criticalAudioIds.map(id => loadAudioBuffer(id));
+    const results = await Promise.allSettled(loadPromises);
+
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
+    const failCount = results.length - successCount;
+
+    console.log(`Preloaded ${successCount} audio buffers, ${failCount} failed`);
+
+    if (successCount > 0) {
+        showVisualNotification("Audio ready for Safari/iOS", 2000);
+    }
 }
 
 // Audio keepalive functions for Safari/iOS
@@ -168,7 +302,26 @@ function updateAudioSources() {
 
 // Add event listener for voice selection change (only if selector exists)
 if (voiceSelect) {
-    voiceSelect.addEventListener('change', updateAudioSources);
+    voiceSelect.addEventListener('change', () => {
+        updateAudioSources();
+
+        // Clear existing buffers and reload for new voice (Safari/iOS)
+        if ((isAppleDevice || isSafari) && audioContext) {
+            console.log("Voice changed, clearing and reloading audio buffers...");
+            audioBuffers = {}; // Clear all buffers
+            bufferLoadPromises = {}; // Clear loading promises
+
+            // Reload buffers after a short delay to allow HTML audio elements to update
+            setTimeout(() => {
+                preloadAudioBuffers().then(() => {
+                    console.log("Audio buffers reloaded for new voice");
+                    showVisualNotification("Voice changed - audio reloaded", 2000);
+                }).catch(e => {
+                    console.error("Error reloading buffers after voice change:", e);
+                });
+            }, 500);
+        }
+    });
     // Initialize audio sources on page load based on default selection
     updateAudioSources();
 }
@@ -319,7 +472,24 @@ if (practiceModeCheckbox) {
 }
 
 // Utility function to play audio with retry mechanism for Safari reliability
+// Tries Web Audio API buffers first, falls back to HTML5 Audio
 function playAudioWithRetry(audioId, retries = 2, delayMs = 500) {
+    // Try Web Audio API buffer first (most reliable for Safari/iOS)
+    if (audioContext && audioBuffers[audioId]) {
+        console.log(`Using Web Audio API buffer for: ${audioId}`);
+        return playBuffer(audioId).catch(bufferError => {
+            console.warn(`Buffer playback failed for ${audioId}, trying HTML5 Audio:`, bufferError);
+            return playHTML5Audio(audioId, retries, delayMs);
+        });
+    }
+
+    // Fall back to HTML5 Audio
+    console.log(`No buffer available for ${audioId}, using HTML5 Audio`);
+    return playHTML5Audio(audioId, retries, delayMs);
+}
+
+// HTML5 Audio playback with retry logic
+function playHTML5Audio(audioId, retries = 2, delayMs = 500) {
     // Check and resume Audio Context before playback attempt
     if (audioContext && audioContext.state === 'suspended') {
         try {
@@ -332,22 +502,22 @@ function playAudioWithRetry(audioId, retries = 2, delayMs = 500) {
             console.error("Error resuming AudioContext before playing audio:", e);
         }
     }
-    
+
     const audio = document.getElementById(audioId);
     if (!audio) {
         console.warn(`Audio element not found for ID: ${audioId}`);
         return Promise.reject(new Error(`Audio element ${audioId} not found`));
     }
-    
-    console.log(`Attempting to play audio: ${audioId}`);
+
+    console.log(`Attempting to play HTML5 audio: ${audioId}`);
     return audio.play().then(() => {
-        console.log(`Successfully played audio: ${audioId}`);
+        console.log(`Successfully played HTML5 audio: ${audioId}`);
     }).catch(error => {
-        console.error(`Failed to play audio ${audioId}:`, error);
+        console.error(`Failed to play HTML5 audio ${audioId}:`, error);
         if (retries > 0) {
             console.log(`Retrying playback for ${audioId}. Retries left: ${retries}`);
             return new Promise(resolve => setTimeout(resolve, delayMs))
-                .then(() => playAudioWithRetry(audioId, retries - 1, delayMs));
+                .then(() => playHTML5Audio(audioId, retries - 1, delayMs));
         } else {
             console.error(`All retries failed for ${audioId}`);
             throw error;
@@ -397,8 +567,15 @@ function initializeAudioUnlockModal() {
                 console.error("Error unlocking audio permissions:", e);
             }
 
-            // Start audio keepalive for Safari/iOS
+            // Preload audio buffers for Safari/iOS (Web Audio API)
             if (isAppleDevice || isSafari) {
+                preloadAudioBuffers().then(() => {
+                    console.log("Audio buffers preloaded successfully");
+                }).catch(e => {
+                    console.error("Error preloading audio buffers:", e);
+                });
+
+                // Also start keepalive as backup
                 startAudioKeepalive();
             }
 
@@ -484,6 +661,14 @@ showVisualNotification("Note: Screen may sleep during race", 3000);
 // Start audio keepalive for Safari/iOS to maintain audio context
 if (isAppleDevice || isSafari) {
 startAudioKeepalive();
+
+// Ensure buffers are loaded (in case modal was skipped)
+if (Object.keys(audioBuffers).length === 0) {
+    console.log("No buffers loaded yet, preloading now...");
+    preloadAudioBuffers().catch(e => {
+        console.error("Error preloading buffers at race start:", e);
+    });
+}
 }
 
 // Resume Audio Context if still suspended (in case modal wasn't clicked)
