@@ -17,14 +17,16 @@ A simple web based and mobile friendly racing timer.
 - Red flags pause the timer.
 
 ## Apple iOS:
-Do to security features in Safari, audio files do not play reliably. I recommend using Firefox on Apple devices.
+As of version 1.6.3, audio should work reliably on iOS/Safari using Web Audio API buffers. However, if you experience any audio issues, Firefox is recommended as an alternative browser on Apple devices.
 
 [Firefox on the Apple App Store](https://apps.apple.com/us/app/firefox-private-web-browser/id989804926)
 
-I will continue to work on workarounds, but if anyone has epxerince with this, please send me a message.
+If you continue to experience audio problems, please open an issue on GitHub.
 
 ## Development
 Code written with major assistance from Grok3 and Claude 4 AI.
+
+As of version 1.6.1, development is assisted by [Claude Code](https://claude.com/claude-code).
 
 Audio files created using Elevenlabs text to speech
 - Arthur (America)
