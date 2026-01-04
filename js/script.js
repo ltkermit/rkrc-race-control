@@ -19,6 +19,9 @@ let redFlagCount = 0;
 // Initialize NoSleep to keep screen awake on mobile devices
 const noSleep = new NoSleep();
 
+// Audio keepalive for Safari/iOS (keeps audio context "warm")
+let audioKeepalive = null;
+
 // Practice mode variables
 const practiceModeCheckbox = document.getElementById('practiceMode');
 let isPracticeMode = false;
@@ -56,6 +59,30 @@ try {
     console.error("Error initializing AudioContext:", e);
 }
 
+// Audio keepalive functions for Safari/iOS
+function startAudioKeepalive() {
+    if (audioKeepalive) return; // Already running
+
+    // Create a very short silent audio snippet
+    const silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAAABmYWN0BAAAAAAAAABkYXRhAAAAAA==');
+    silentAudio.volume = 0.01; // Nearly silent
+
+    console.log("Starting audio keepalive for Safari/iOS");
+    audioKeepalive = setInterval(() => {
+        silentAudio.play().catch(e => {
+            // Silent failure is OK - this is just to keep context warm
+        });
+    }, 900); // Play every 900ms to keep audio context active
+}
+
+function stopAudioKeepalive() {
+    if (audioKeepalive) {
+        clearInterval(audioKeepalive);
+        audioKeepalive = null;
+        console.log("Stopped audio keepalive");
+    }
+}
+
 // Voice selector logic (for any page with voiceSelect element)
 // List of audio IDs that need voice updates (excluding beep sounds)
 const voiceAudioIds = [
@@ -76,7 +103,6 @@ const voiceAudioIds = [
     '7-minute',
     '8-minute',
     '9-minute',
-    '10-minute',
     'getReadySound', // Added for the "Get Ready" sound played before clearing flags
     // Add any other minute or specific audio IDs present in your HTML
 ];
@@ -116,6 +142,17 @@ function updateAudioSources() {
             console.log(`Updating ${audioId} src to: ${newSrc}`);
             audioElement.src = newSrc;
             
+            // Add error handler for missing audio files
+            audioElement.addEventListener('error', (e) => {
+                console.error(`Failed to load audio: ${audioId} from ${newSrc}`, e);
+                showVisualNotification(`Audio file missing: ${baseName}`, 5000);
+            }, { once: true });
+
+            // Add canplaythrough handler to confirm successful load
+            audioElement.addEventListener('canplaythrough', () => {
+                console.log(`✓ Audio ready: ${audioId}`);
+            }, { once: true });
+
             // Force reload of the audio file without playing
             try {
                 audioElement.load();
@@ -194,6 +231,11 @@ function displayFlagCounts() {
 function showVisualNotification(message, durationMs = 3000) {
     const notificationContainer = document.getElementById('visualNotificationContainer');
     if (notificationContainer) {
+        // Limit to 3 notifications max to prevent memory leaks
+        while (notificationContainer.children.length >= 3) {
+            notificationContainer.removeChild(notificationContainer.firstChild);
+        }
+
         const notification = document.createElement('div');
         notification.className = 'visual-notification';
         notification.textContent = message;
@@ -336,7 +378,7 @@ function initializeAudioUnlockModal() {
                     console.error("Error resuming AudioContext:", e);
                 }
             }
-            
+
             // Play a short audio to unlock permissions
             try {
                 const startSound = document.getElementById('startEnginesSound') || document.getElementById('beepSound');
@@ -354,7 +396,12 @@ function initializeAudioUnlockModal() {
             } catch (e) {
                 console.error("Error unlocking audio permissions:", e);
             }
-            
+
+            // Start audio keepalive for Safari/iOS
+            if (isAppleDevice || isSafari) {
+                startAudioKeepalive();
+            }
+
             // Hide the modal after click
             unlockModal.style.display = 'none';
         });
@@ -418,6 +465,7 @@ updateTimerDisplay();
 // Disable controls
 raceTimeSelect.disabled = true;
 practiceModeCheckbox.disabled = true; // Disable practice mode toggle during race
+voiceSelect.disabled = true; // Disable voice changing during race
 startRaceBtn.disabled = true;
 yellowFlagBtn.disabled = false;
 redFlagBtn.disabled = false;
@@ -430,6 +478,12 @@ noSleep.enable();
 console.log("Screen wake lock enabled");
 } catch (e) {
 console.error("Failed to enable screen wake lock:", e);
+showVisualNotification("Note: Screen may sleep during race", 3000);
+}
+
+// Start audio keepalive for Safari/iOS to maintain audio context
+if (isAppleDevice || isSafari) {
+startAudioKeepalive();
 }
 
 // Resume Audio Context if still suspended (in case modal wasn't clicked)
@@ -583,6 +637,9 @@ if (isRunning) {
             } catch (e) {
                 console.error("Failed to disable screen wake lock:", e);
             }
+
+            // Stop audio keepalive when race ends
+            stopAudioKeepalive();
         }
     }
 }
@@ -590,8 +647,14 @@ if (isRunning) {
 }
 
 function updateTimerDisplay() {
-if (isPracticeMode && !isRunning && secondsLeft === 0) {
-timerDisplay.textContent = 'PRACTICE';
+if (isPracticeMode) {
+if (!isRunning && secondsLeft === 0) {
+    timerDisplay.textContent = 'PRACTICE';
+} else {
+    const minutes = Math.floor(secondsLeft / 60);
+    const seconds = secondsLeft % 60;
+    timerDisplay.textContent = `PRACTICE: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
 } else {
 const minutes = Math.floor(secondsLeft / 60);
 const seconds = secondsLeft % 60;
@@ -604,7 +667,8 @@ const currentMinute = Math.floor(secondsLeft / 60);
 const currentSecond = secondsLeft % 60;
 
 // Check for minute marks (play specific minute audio when seconds hit 0)
-if (currentMinute !== lastMinutePlayed && currentSecond === 0 && currentMinute > 0) {
+// Skip 10-minute mark since there's no callout at race start
+if (currentMinute !== lastMinutePlayed && currentSecond === 0 && currentMinute > 0 && currentMinute < 10) {
 try {
     const audioId = `${currentMinute}-minute`;
     console.log(`Playing audio for ${currentMinute} minute(s) left: ${audioId}`);
@@ -806,6 +870,7 @@ yellowFlagBtn.textContent = 'Yellow Flag';
 redFlagBtn.textContent = 'Red Flag';
 raceTimeSelect.disabled = false; // Enable time selector on restart
 practiceModeCheckbox.disabled = false; // Re-enable practice mode checkbox
+voiceSelect.disabled = false; // Re-enable voice selector on restart
 startRaceBtn.disabled = false; // Enable start button
 yellowFlagBtn.disabled = true; // Disable flag buttons until race starts
 redFlagBtn.disabled = true;
@@ -813,6 +878,9 @@ restartBtn.disabled = true; // Disable restart until race starts again
 lastMinutePlayed = -1;
 hasPlayed30Seconds = false; // Reset 30-second sound flag on restart
 resetFlagCounts(); // Reset flag counts on restart
+
+// Stop audio keepalive when race is restarted
+stopAudioKeepalive();
 
 try {
 console.log("Playing restart sound");
