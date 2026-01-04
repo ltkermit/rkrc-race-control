@@ -3,3 +3,6 @@ markdown.md
 
 # Windows Zone.Identifier files
 *:Zone.Identifier
+
+# FreeFileSync database
+sync.ffs_db
