@@ -1,8 +1,8 @@
 // RKRC Race Control - Service Worker
-// Version 1.7.0
+// Version 1.7.1
 
-const CACHE_NAME = 'rkrc-race-control-v1.7.0';
-const RUNTIME_CACHE = 'rkrc-runtime-v1.7.0';
+const CACHE_NAME = 'rkrc-race-control-v1.7.1';
+const RUNTIME_CACHE = 'rkrc-runtime-v1.7.1';
 
 // Files to cache for offline use
 const urlsToCache = [
@@ -75,7 +75,26 @@ const urlsToCache = [
   '/audio/merica/n-6-minute.mp3',
   '/audio/merica/n-7-minute.mp3',
   '/audio/merica/n-8-minute.mp3',
-  '/audio/merica/n-9-minute.mp3'
+  '/audio/merica/n-9-minute.mp3',
+  // Dee Liffy voice
+  '/audio/dee/dee-startengines.wav',
+  '/audio/dee/dee-yellowon.wav',
+  '/audio/dee/dee-yellowoff.wav',
+  '/audio/dee/dee-redon.wav',
+  '/audio/dee/dee-redoff.wav',
+  '/audio/dee/dee-end.wav',
+  '/audio/dee/dee-restart.wav',
+  '/audio/dee/dee-getready.wav',
+  '/audio/dee/dee-30-seconds.wav',
+  '/audio/dee/dee-1-minute.wav',
+  '/audio/dee/dee-2-minute.wav',
+  '/audio/dee/dee-3-minute.wav',
+  '/audio/dee/dee-4-minute.wav',
+  '/audio/dee/dee-5-minute.wav',
+  '/audio/dee/dee-6-minute.wav',
+  '/audio/dee/dee-7-minute.wav',
+  '/audio/dee/dee-8-minute.wav',
+  '/audio/dee/dee-9-minute.wav'
 ];
 
 // Install event - cache all resources

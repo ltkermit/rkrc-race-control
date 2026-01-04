@@ -278,13 +278,14 @@ const voiceAudioIds = [
 function updateAudioSources() {
     const selectedVoice = voiceSelect.value;
     console.log(`Updating audio sources to voice: ${selectedVoice}`);
-    
+
     voiceAudioIds.forEach(audioId => {
         const audioElement = document.getElementById(audioId);
         if (audioElement) {
             let basePath = 'audio/';
             let prefix = '';
-            
+            let extension = '.mp3';
+
             if (selectedVoice === 'america') {
                 basePath += 'america/';
             } else if (selectedVoice === 'europe') {
@@ -293,19 +294,51 @@ function updateAudioSources() {
             } else if (selectedVoice === 'merica') {
                 basePath += 'merica/';
                 prefix = 'n-';
+            } else if (selectedVoice === 'dee') {
+                basePath += 'dee/';
+                prefix = 'dee-';
+                extension = '.wav';
             }
-            
+
             // Extract the base filename from the current src or a default
             let baseName = audioId.replace('Sound', '').toLowerCase();
-            if (baseName.includes('-')) {
-                baseName = baseName.replace('-', '-');
-            } else if (audioId === '30-seconds') {
-                baseName = '30-seconds';
-            } else if (audioId.includes('minute')) {
-                baseName = audioId.replace('-', '-');
+
+            // Special handling for Dee Liffy voice (different naming convention)
+            if (selectedVoice === 'dee') {
+                // Map audio IDs to Dee Liffy file names (no hyphens in compound words)
+                const deeNameMap = {
+                    'startengines': 'startengines',
+                    'yellowon': 'yellowon',
+                    'yellowoff': 'yellowoff',
+                    'redon': 'redon',
+                    'redoff': 'redoff',
+                    'end': 'end',
+                    'restart': 'restart',
+                    'getready': 'getready',
+                    '30-seconds': '30-seconds',
+                    '1-minute': '1-minute',
+                    '2-minute': '2-minute',
+                    '3-minute': '3-minute',
+                    '4-minute': '4-minute',
+                    '5-minute': '5-minute',
+                    '6-minute': '6-minute',
+                    '7-minute': '7-minute',
+                    '8-minute': '8-minute',
+                    '9-minute': '9-minute'
+                };
+                baseName = deeNameMap[baseName] || baseName;
+            } else {
+                // Standard naming for other voices
+                if (baseName.includes('-')) {
+                    baseName = baseName.replace('-', '-');
+                } else if (audioId === '30-seconds') {
+                    baseName = '30-seconds';
+                } else if (audioId.includes('minute')) {
+                    baseName = audioId.replace('-', '-');
+                }
             }
-            
-            const newSrc = `${basePath}${prefix}${baseName}.mp3`;
+
+            const newSrc = `${basePath}${prefix}${baseName}${extension}`;
             console.log(`Updating ${audioId} src to: ${newSrc}`);
             audioElement.src = newSrc;
             
