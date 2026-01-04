@@ -31,6 +31,39 @@ startRaceBtn.disabled = false;
 raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
 console.log("Script loaded, start button and time selector enabled!");
 
+// ===== PWA SERVICE WORKER REGISTRATION =====
+// Register service worker for Progressive Web App functionality
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+                console.log('[PWA] ServiceWorker registered successfully:', registration.scope);
+
+                // Check for updates on page load
+                registration.update();
+
+                // Listen for updates
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    console.log('[PWA] New service worker found, installing...');
+
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New service worker available, show update notification
+                            console.log('[PWA] New version available! Refresh to update.');
+                            showVisualNotification('Update available! Refresh page to update app.', 5000);
+                        }
+                    });
+                });
+            })
+            .catch(error => {
+                console.log('[PWA] ServiceWorker registration failed:', error);
+            });
+    });
+} else {
+    console.log('[PWA] Service workers not supported in this browser');
+}
+
 // Function to generate a random delay between 3000ms (3s) and 6000ms (6s)
 function getRandomDelay() {
     return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
