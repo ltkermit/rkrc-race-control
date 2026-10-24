@@ -1,35 +1,33 @@
-// RKRC Race Control - Service Worker
-// Version 1.7.1
+// RKRC Race Control - Service Worker v1.8.3
 
-const CACHE_NAME = 'rkrc-race-control-v1.7.1';
-const RUNTIME_CACHE = 'rkrc-runtime-v1.7.1';
+const CACHE_NAME = 'rkrc-race-control-v1.8.3';
+const RUNTIME_CACHE = 'rkrc-runtime-v1.8.3';
 
-// Files to cache for offline use
 const urlsToCache = [
   '/',
   '/index.html',
   '/steward.html',
   '/nosteward.html',
   '/instructions.html',
-  '/pwa-status.html',
-  '/sw-test.html',
+  '/changelog.html',
   '/css/style.css',
   '/js/script.js',
   '/js/noSleep.min.js',
+  '/manifest.json',
   '/img/logo-v4-no-tag.png',
   '/img/favicon.ico',
-  // Beep sounds (shared)
+  // Shared beep sounds
   '/audio/beep.mp3',
   '/audio/start-beep.mp3',
-  // American voice (default)
-  '/audio/america/start-engines.mp3',
-  '/audio/america/yellow-on.mp3',
-  '/audio/america/yellow-off.mp3',
-  '/audio/america/red-on.mp3',
-  '/audio/america/red-off.mp3',
+  // American voice
+  '/audio/america/startengines.mp3',
+  '/audio/america/yellowon.mp3',
+  '/audio/america/yellowoff.mp3',
+  '/audio/america/redon.mp3',
+  '/audio/america/redoff.mp3',
   '/audio/america/end.mp3',
   '/audio/america/restart.mp3',
-  '/audio/america/get-ready.mp3',
+  '/audio/america/getready.mp3',
   '/audio/america/30-seconds.mp3',
   '/audio/america/1-minute.mp3',
   '/audio/america/2-minute.mp3',
@@ -41,14 +39,14 @@ const urlsToCache = [
   '/audio/america/8-minute.mp3',
   '/audio/america/9-minute.mp3',
   // European voice
-  '/audio/europe/e-start-engines.mp3',
-  '/audio/europe/e-yellow-on.mp3',
-  '/audio/europe/e-yellow-off.mp3',
-  '/audio/europe/e-red-on.mp3',
-  '/audio/europe/e-red-off.mp3',
+  '/audio/europe/e-startengines.mp3',
+  '/audio/europe/e-yellowon.mp3',
+  '/audio/europe/e-yellowoff.mp3',
+  '/audio/europe/e-redon.mp3',
+  '/audio/europe/e-redoff.mp3',
   '/audio/europe/e-end.mp3',
   '/audio/europe/e-restart.mp3',
-  '/audio/europe/e-get-ready.mp3',
+  '/audio/europe/e-getready.mp3',
   '/audio/europe/e-30-seconds.mp3',
   '/audio/europe/e-1-minute.mp3',
   '/audio/europe/e-2-minute.mp3',
@@ -60,14 +58,14 @@ const urlsToCache = [
   '/audio/europe/e-8-minute.mp3',
   '/audio/europe/e-9-minute.mp3',
   // NASCAR voice
-  '/audio/merica/n-start-engines.mp3',
-  '/audio/merica/n-yellow-on.mp3',
-  '/audio/merica/n-yellow-off.mp3',
-  '/audio/merica/n-red-on.mp3',
-  '/audio/merica/n-red-off.mp3',
+  '/audio/merica/n-startengines.mp3',
+  '/audio/merica/n-yellowon.mp3',
+  '/audio/merica/n-yellowoff.mp3',
+  '/audio/merica/n-redon.mp3',
+  '/audio/merica/n-redoff.mp3',
   '/audio/merica/n-end.mp3',
   '/audio/merica/n-restart.mp3',
-  '/audio/merica/n-get-ready.mp3',
+  '/audio/merica/n-getready.mp3',
   '/audio/merica/n-30-seconds.mp3',
   '/audio/merica/n-1-minute.mp3',
   '/audio/merica/n-2-minute.mp3',
@@ -96,95 +94,62 @@ const urlsToCache = [
   '/audio/dee/dee-6-minute.wav',
   '/audio/dee/dee-7-minute.wav',
   '/audio/dee/dee-8-minute.wav',
-  '/audio/dee/dee-9-minute.wav'
+  '/audio/dee/dee-9-minute.wav',
+  // DJT voice
+  '/audio/djt/djt-startengines.wav',
+  '/audio/djt/djt-yellowon.wav',
+  '/audio/djt/djt-yellowoff.wav',
+  '/audio/djt/djt-redon.wav',
+  '/audio/djt/djt-redoff.wav',
+  '/audio/djt/djt-end.wav',
+  '/audio/djt/djt-restart.wav',
+  '/audio/djt/djt-getready.wav',
+  '/audio/djt/djt-30-seconds.wav',
+  '/audio/djt/djt-1-minute.wav',
+  '/audio/djt/djt-2-minute.wav',
+  '/audio/djt/djt-3-minute.wav',
+  '/audio/djt/djt-4-minute.wav',
+  '/audio/djt/djt-5-minute.wav',
+  '/audio/djt/djt-6-minute.wav',
+  '/audio/djt/djt-7-minute.wav',
+  '/audio/djt/djt-8-minute.wav',
+  '/audio/djt/djt-9-minute.wav',
 ];
 
-// Install event - cache all resources
 self.addEventListener('install', event => {
-  console.log('[ServiceWorker] Installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[ServiceWorker] Caching app shell');
-        return cache.addAll(urlsToCache);
-      })
-      .then(() => {
-        console.log('[ServiceWorker] Skip waiting on install');
-        return self.skipWaiting();
-      })
+      .then(cache => cache.addAll(urlsToCache))
+      .then(() => self.skipWaiting())
   );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', event => {
-  console.log('[ServiceWorker] Activating...');
-  const cacheWhitelist = [CACHE_NAME, RUNTIME_CACHE];
+  const whitelist = [CACHE_NAME, RUNTIME_CACHE];
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (!cacheWhitelist.includes(cacheName)) {
-            console.log('[ServiceWorker] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => {
-      console.log('[ServiceWorker] Claiming clients');
-      return self.clients.claim();
+    caches.keys()
+      .then(names => Promise.all(
+        names.map(name => !whitelist.includes(name) && caches.delete(name))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  if (!event.request.url.startsWith(self.location.origin)) return;
+  event.respondWith(
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request.clone()).then(response => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          caches.open(RUNTIME_CACHE).then(cache => cache.put(event.request, response.clone()));
+        }
+        return response;
+      });
     })
   );
 });
 
-// Fetch event - serve from cache, fallback to network
-self.addEventListener('fetch', event => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => {
-        if (cachedResponse) {
-          // Return cached version
-          return cachedResponse;
-        }
-
-        // Clone the request
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then(response => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          // Clone the response
-          const responseToCache = response.clone();
-
-          // Cache the fetched response for runtime
-          caches.open(RUNTIME_CACHE)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-
-          return response;
-        }).catch(error => {
-          console.log('[ServiceWorker] Fetch failed:', error);
-          // Could return a custom offline page here if desired
-          throw error;
-        });
-      })
-  );
-});
-
-// Listen for messages from the client
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('[ServiceWorker] Skip waiting message received');
-    self.skipWaiting();
-  }
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
-
-console.log('[ServiceWorker] Service Worker loaded');

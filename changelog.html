@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RKRC Race Control version history and changelog">
+    <title>RKRC Race Control - Changelog</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="img/favicon.ico">
+    <style>
+        /* Allow the page to scroll — the shared body CSS uses height:100vh which clips tall pages */
+        body { height: auto; min-height: 100vh; align-items: flex-start; padding: 60px 20px 60px; box-sizing: border-box; }
+        .changelog { max-width: 700px; margin: 0 auto; padding: 20px; text-align: left; }
+        .changelog h2 { font-size: 1.3em; border-bottom: 2px solid #2f2bb2; padding-bottom: 6px; margin-top: 32px; }
+        .changelog h3 { font-size: 1em; color: #555; margin: 16px 0 6px; }
+        .changelog ul { margin: 0 0 0 20px; padding: 0; }
+        .changelog li { margin-bottom: 6px; line-height: 1.5; }
+        .version-tag { font-size: 0.75em; color: #888; font-weight: normal; margin-left: 8px; }
+    </style>
+</head>
+<body>
+    <div class="back-button">
+        <a href="index.html">Home</a>
+    </div>
+    <div class="container">
+        <img src="img/logo-v4-no-tag.png" width="200" alt="RKRC Logo">
+        <h1>Changelog</h1>
+    </div>
+    <div class="changelog">
+
+        <h2>v1.8.3 <span class="version-tag">2026-10-24</span></h2>
+
+        <h3>Added</h3>
+        <ul>
+            <li>DJT announcer voice.</li>
+        </ul>
+
+        <h3>Changed</h3>
+        <ul>
+            <li>Announcer audio now plays one clip at a time. A new call (flag, flag clear, start, end, restart) cuts off whatever is playing, and time callouts wait for the current clip to finish. A callout that would play more than 5 seconds late is skipped.</li>
+            <li>The start countdown now begins after the &ldquo;start your engines&rdquo; call finishes (minimum 3 seconds), so long announcer clips no longer overlap the beeps.</li>
+            <li>No-steward mode: a flag now clears 1&ndash;3 seconds (random) after &ldquo;get ready&rdquo; finishes, and never sooner than the usual random 3&ndash;6 seconds from the click.</li>
+            <li>Yellow and red flag buttons are disabled until GO.</li>
+            <li>Restart works the same in both modes: it stops all audio and pending race steps and always plays the restart call. It asks for confirmation whenever a race is underway (including during the start sequence and while a flag is clearing), but not after a race has ended.</li>
+        </ul>
+
+        <h3>Fixed</h3>
+        <ul>
+            <li>In no-steward mode, a pending flag clear could fire after Restart or after the race ended, restarting the clock or re-enabling the flag buttons.</li>
+            <li>A red flag thrown during the start sequence was overridden when the race went green.</li>
+            <li>Restarting in practice mode re-enabled the race time selector.</li>
+        </ul>
+
+        <h2>v1.8.2 <span class="version-tag">2026-05-16</span></h2>
+
+        <h3>Added</h3>
+        <ul>
+            <li>Settings persistence: selected announcer voice, race duration, and practice mode are now saved and restored automatically between sessions.</li>
+            <li>Confirm dialog when restarting a race that is in progress (including during a flag).</li>
+        </ul>
+
+        <h3>Changed</h3>
+        <ul>
+            <li>Restarting after a race has ended is now silent — no audio and no confirmation prompt.</li>
+        </ul>
+
+        <h2>v1.8.1 <span class="version-tag">2026-05-16</span></h2>
+
+        <h3>Added</h3>
+        <ul>
+            <li>Apache hosting support via <code>.htaccess</code> — correct MIME types for MP3/WAV, caching headers, and service worker headers.</li>
+        </ul>
+
+        <h3>Fixed</h3>
+        <ul>
+            <li>Reworked audio system to use Web Audio API exclusively, resolving iOS Safari audio reliability issues. The AudioContext is now resumed synchronously on the first user gesture (Start Race button), satisfying iOS's requirement that audio be initiated by direct user interaction.</li>
+            <li>Audio buffers are now preloaded at page load for all browsers.</li>
+            <li>Service worker cache list had mismatched filenames causing offline mode to silently fail. All entries corrected.</li>
+            <li>Removed broken icon and screenshot references from the PWA manifest.</li>
+        </ul>
+
+        <h3>Removed</h3>
+        <ul>
+            <li>Audio unlock modal and Firefox recommendation banner — no longer needed with the corrected audio approach.</li>
+        </ul>
+
+        <h2>v1.7.1 <span class="version-tag">2026-01-18</span></h2>
+        <ul>
+            <li>Added Dee Liffy announcer voice.</li>
+            <li>Added PWA app icons for all standard device sizes.</li>
+            <li>Added PWA diagnostic page for troubleshooting offline issues.</li>
+        </ul>
+
+        <h2>v1.7.0 <span class="version-tag">2026-01-04</span></h2>
+        <ul>
+            <li>Progressive Web App (PWA) support: service worker, offline caching, installable to home screen.</li>
+        </ul>
+
+        <h2>v1.6.3</h2>
+        <ul>
+            <li>Web Audio API buffer system introduced for improved Safari/iOS audio reliability.</li>
+        </ul>
+
+        <h2>v1.6.2</h2>
+        <ul>
+            <li>Safari audio fixes and general code improvements.</li>
+        </ul>
+
+        <h2>v1.6.0</h2>
+        <ul>
+            <li>Added European and NASCAR announcer voices.</li>
+            <li>Race summary showing flag counts displayed at race end.</li>
+            <li>Practice mode added (counts up, no race end condition).</li>
+        </ul>
+
+        <h2>Pre-1.6</h2>
+        <ul>
+            <li>Initial race timer with steward and no-steward modes.</li>
+            <li>No-steward mode: random 3–6 second delay before clearing flags.</li>
+            <li>Audio callouts at each remaining minute and at 30 seconds.</li>
+            <li>4-3-2-1 countdown beep sequence before race start.</li>
+            <li>Red flag pauses the timer.</li>
+            <li>Screen wake lock via NoSleep.js.</li>
+            <li>Checkerboard background pattern at race end.</li>
+        </ul>
+
+    </div>
+    <div class="footer">
+        <a href="https://rkrc.club" target="_blank">RKRC</a>
+    </div>
+</body>
+</html>

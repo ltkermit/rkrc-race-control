@@ -1,0 +1,37 @@
+# RKRC Race Control - Apache configuration for SiteGround
+
+Options -Indexes
+
+# MIME types
+AddType audio/mpeg .mp3
+AddType audio/wav .wav
+AddType application/manifest+json .json
+AddType application/manifest+json .webmanifest
+
+<IfModule mod_headers.c>
+    # Service worker must not be cached and needs full scope
+    <Files "service-worker.js">
+        Header set Cache-Control "no-store, no-cache, must-revalidate"
+        Header set Service-Worker-Allowed "/"
+    </Files>
+
+    # Cache audio for 30 days (content rarely changes)
+    <FilesMatch "\.(mp3|wav)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+
+    # Cache images for 7 days
+    <FilesMatch "\.(png|ico)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+
+    # Short cache for HTML, JS, CSS so updates reach users within a day
+    <FilesMatch "\.(html|js|css)$">
+        Header set Cache-Control "public, max-age=86400"
+    </FilesMatch>
+</IfModule>
+
+# Gzip text assets (not audio — already compressed)
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
+</IfModule>

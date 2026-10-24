@@ -1,3 +1,4 @@
+// ===== DOM ELEMENTS =====
 const raceTimeSelect = document.getElementById('raceTime');
 const startRaceBtn = document.getElementById('startRace');
 const timerDisplay = document.getElementById('timer');
@@ -5,6 +6,9 @@ const yellowFlagBtn = document.getElementById('yellowFlag');
 const redFlagBtn = document.getElementById('redFlag');
 const restartBtn = document.getElementById('restart');
 const voiceSelect = document.getElementById('voiceSelect');
+const practiceModeCheckbox = document.getElementById('practiceMode');
+
+// ===== STATE =====
 let totalSeconds = 0;
 let secondsLeft = 0;
 let timerInterval = null;
@@ -12,1145 +16,588 @@ let isRunning = false;
 let isYellowFlag = false;
 let isRedFlag = false;
 let lastMinutePlayed = -1;
-let hasPlayed30Seconds = false; // Track if 30-second sound has been played
-// Flag count variables
+let hasPlayed30Seconds = false;
 let yellowFlagCount = 0;
 let redFlagCount = 0;
-// Initialize NoSleep to keep screen awake on mobile devices
+let isPracticeMode = false;
+let raceActive = false;      // true from Start Race until the race ends or is restarted
+let raceSessionId = 0;       // bumped on end/restart so pending race steps cancel themselves
+
+const isNoStewardPage = window.location.pathname.includes('nosteward.html');
 const noSleep = new NoSleep();
 
-// Audio keepalive for Safari/iOS (keeps audio context "warm")
-let audioKeepalive = null;
-
-// Practice mode variables
-const practiceModeCheckbox = document.getElementById('practiceMode');
-let isPracticeMode = false;
-
-// Explicitly enable start button and time selector on page load
 startRaceBtn.disabled = false;
-raceTimeSelect.disabled = false; // Ensure time selector is enabled on load
-console.log("Script loaded, start button and time selector enabled!");
+raceTimeSelect.disabled = false;
 
-// ===== PWA SERVICE WORKER REGISTRATION =====
-// Register service worker for Progressive Web App functionality
+// ===== WEB AUDIO SYSTEM =====
+// Uses Web Audio API exclusively — more reliable than HTML5 Audio on iOS Safari.
+// Buffers are decoded at page load (no user gesture needed for decoding).
+// The AudioContext is resumed synchronously on the first button press, which
+// satisfies iOS's requirement that audio be initiated by a user gesture.
+
+const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+const audioContext = AudioContextCtor ? new AudioContextCtor() : null;
+const audioBuffers = {};
+
+// Maps audio IDs to base filenames (without voice prefix/extension)
+const AUDIO_NAMES = {
+    startEnginesSound: 'startengines',
+    yellowOnSound:     'yellowon',
+    yellowOffSound:    'yellowoff',
+    redOnSound:        'redon',
+    redOffSound:       'redoff',
+    endSound:          'end',
+    restartSound:      'restart',
+    getReadySound:     'getready',
+    '30-seconds':      '30-seconds',
+    '1-minute': '1-minute', '2-minute': '2-minute', '3-minute': '3-minute',
+    '4-minute': '4-minute', '5-minute': '5-minute', '6-minute': '6-minute',
+    '7-minute': '7-minute', '8-minute': '8-minute', '9-minute': '9-minute',
+};
+
+// Shared sounds that are the same across all voices
+const SHARED_AUDIO = {
+    beepSound:      'audio/beep.mp3',
+    startBeepSound: 'audio/start-beep.mp3',
+};
+
+const VOICE_CONFIG = {
+    america: { dir: 'audio/america', prefix: '',     ext: '.mp3' },
+    europe:  { dir: 'audio/europe',  prefix: 'e-',   ext: '.mp3' },
+    merica:  { dir: 'audio/merica',  prefix: 'n-',   ext: '.mp3' },
+    dee:     { dir: 'audio/dee',     prefix: 'dee-', ext: '.wav' },
+    djt:     { dir: 'audio/djt',     prefix: 'djt-', ext: '.wav' },
+};
+
+function getAudioUrl(audioId, voice) {
+    if (SHARED_AUDIO[audioId]) return SHARED_AUDIO[audioId];
+    const base = AUDIO_NAMES[audioId];
+    if (!base) return null;
+    const { dir, prefix, ext } = VOICE_CONFIG[voice] || VOICE_CONFIG.america;
+    return `${dir}/${prefix}${base}${ext}`;
+}
+
+function bufferKey(audioId, voice) {
+    return SHARED_AUDIO[audioId] ? audioId : `${voice}:${audioId}`;
+}
+
+async function loadBuffer(audioId, voice) {
+    if (!audioContext) return null;
+    const key = bufferKey(audioId, voice);
+    if (audioBuffers[key]) return audioBuffers[key];
+    const url = getAudioUrl(audioId, voice);
+    if (!url) return null;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const decoded = await audioContext.decodeAudioData(await response.arrayBuffer());
+        audioBuffers[key] = decoded;
+        return decoded;
+    } catch (e) {
+        console.warn(`Audio load failed [${audioId}]:`, e);
+        return null;
+    }
+}
+
+function preloadVoice(voice) {
+    if (!audioContext) return;
+    [...Object.keys(AUDIO_NAMES), ...Object.keys(SHARED_AUDIO)].forEach(id => loadBuffer(id, voice));
+}
+
+// Audio playback rules (voice clips vary a lot in length between announcers):
+// - Announcer clips share one channel, so two voice clips never overlap.
+//   announce() interrupts whatever is playing; announceWhenFree() waits its turn.
+// - Beeps go through playSound() and are only used while the announcer is quiet.
+// - stopAllSounds() silences everything and drops anything still loading or queued.
+
+const activeSources = new Set();
+let audioGeneration = 0;     // bumped by stopAllSounds() so late-loading clips never play
+let announcerToken = 0;      // identifies the clip that currently owns the announcer channel
+let announcerSource = null;
+let announcerActive = false;
+const announcerQueue = [];
+const MAX_CALLOUT_DELAY_MS = 5000;
+
+function getBuffer(audioId) {
+    const voice = voiceSelect ? voiceSelect.value : 'america';
+    const key = bufferKey(audioId, voice);
+    const ready = audioContext.state === 'running' ? Promise.resolve() : audioContext.resume();
+    return ready.then(() => audioBuffers[key] || loadBuffer(audioId, voice));
+}
+
+function playBuffer(buffer) {
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.start(0);
+    activeSources.add(source);
+    const ended = new Promise(resolve => {
+        source.onended = () => { activeSources.delete(source); resolve(); };
+    });
+    return { source, ended };
+}
+
+function stopAllSounds() {
+    audioGeneration++;
+    announcerToken++;
+    announcerSource = null;
+    announcerActive = false;
+    announcerQueue.length = 0;
+    activeSources.forEach(source => { try { source.stop(); } catch (e) {} });
+    activeSources.clear();
+}
+
+// Plays a non-voice sound (beeps). Resolves when it finishes.
+function playSound(audioId) {
+    if (!audioContext) return Promise.resolve();
+    const gen = audioGeneration;
+    return getBuffer(audioId).then(buffer => {
+        if (!buffer || gen !== audioGeneration) return;
+        return playBuffer(buffer).ended;
+    });
+}
+
+// Plays an announcer clip, cutting off any clip already playing.
+// Resolves when the clip finishes or is interrupted.
+function announce(audioId) {
+    const token = ++announcerToken;
+    if (announcerSource) { try { announcerSource.stop(); } catch (e) {} }
+    announcerSource = null;
+    announcerActive = true;
+    if (!audioContext) return Promise.resolve();
+    const gen = audioGeneration;
+
+    const finish = () => {
+        if (token !== announcerToken) return;
+        announcerSource = null;
+        announcerActive = false;
+        // Skip callouts that waited too long to still be accurate
+        while (announcerQueue.length) {
+            const next = announcerQueue.shift();
+            if (performance.now() - next.queuedAt <= MAX_CALLOUT_DELAY_MS) { announce(next.audioId); break; }
+        }
+    };
+
+    return getBuffer(audioId).then(buffer => {
+        if (token !== announcerToken || gen !== audioGeneration) return;
+        if (!buffer) return finish();
+        const { source, ended } = playBuffer(buffer);
+        announcerSource = source;
+        return ended.then(finish);
+    });
+}
+
+// Plays an announcer clip once the channel is free (used for time callouts).
+// Dropped if the channel stays busy longer than MAX_CALLOUT_DELAY_MS.
+function announceWhenFree(audioId) {
+    if (announcerActive) announcerQueue.push({ audioId, queuedAt: performance.now() });
+    else announce(audioId);
+}
+
+function wait(ms) {
+    return new Promise(resolve => schedule(resolve, ms));
+}
+
+// ===== SETTINGS PERSISTENCE =====
+
+function saveSettings() {
+    try {
+        if (voiceSelect) localStorage.setItem('rkrc_voice', voiceSelect.value);
+        if (raceTimeSelect) localStorage.setItem('rkrc_race_time', raceTimeSelect.value);
+        if (practiceModeCheckbox) localStorage.setItem('rkrc_practice_mode', practiceModeCheckbox.checked);
+    } catch (e) {}
+}
+
+function loadSettings() {
+    try {
+        const voice = localStorage.getItem('rkrc_voice');
+        if (voice && voiceSelect) voiceSelect.value = voice;
+
+        const raceTime = localStorage.getItem('rkrc_race_time');
+        if (raceTime && raceTimeSelect) raceTimeSelect.value = raceTime;
+
+        const practiceMode = localStorage.getItem('rkrc_practice_mode');
+        if (practiceMode === 'true' && practiceModeCheckbox) {
+            practiceModeCheckbox.checked = true;
+            togglePracticeMode();
+        }
+    } catch (e) {}
+}
+
+loadSettings();
+
+// Begin decoding audio files immediately — decodeAudioData doesn't need a user gesture
+preloadVoice(voiceSelect ? voiceSelect.value : 'america');
+
+// ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/service-worker.js')
-            .then(registration => {
-                console.log('[PWA] ServiceWorker registered successfully:', registration.scope);
-
-                // Check for updates on page load
-                registration.update();
-
-                // Listen for updates
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    console.log('[PWA] New service worker found, installing...');
-
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // New service worker available, show update notification
-                            console.log('[PWA] New version available! Refresh to update.');
-                            showVisualNotification('Update available! Refresh page to update app.', 5000);
+            .then(reg => {
+                reg.update();
+                reg.addEventListener('updatefound', () => {
+                    const w = reg.installing;
+                    w.addEventListener('statechange', () => {
+                        if (w.state === 'installed' && navigator.serviceWorker.controller) {
+                            showVisualNotification('Update available — refresh to update.', 5000);
                         }
                     });
                 });
             })
-            .catch(error => {
-                console.log('[PWA] ServiceWorker registration failed:', error);
-            });
+            .catch(e => console.warn('[PWA] Registration failed:', e));
     });
-} else {
-    console.log('[PWA] Service workers not supported in this browser');
 }
 
-// Function to generate a random delay between 3000ms (3s) and 6000ms (6s)
+// ===== HELPERS =====
+
+// Race-related timeouts, tracked so Restart can cancel them all
+const pendingTimeouts = new Set();
+
+function schedule(fn, ms) {
+    const id = setTimeout(() => { pendingTimeouts.delete(id); fn(); }, ms);
+    pendingTimeouts.add(id);
+}
+
+function clearPendingTimeouts() {
+    pendingTimeouts.forEach(clearTimeout);
+    pendingTimeouts.clear();
+}
+
 function getRandomDelay() {
-    return Math.floor(Math.random() * (6000 - 3000 + 1)) + 3000;
+    return Math.floor(Math.random() * 3000) + 3000;
 }
 
-// Detect if running on Apple device or Safari for audio debugging
-const isAppleDevice = /iPhone|iPad|iPod/.test(navigator.userAgent); // Focus on iOS devices
-const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-if (isAppleDevice || isSafari) {
-    console.log("Running on Apple device or Safari. Audio playback may require user interaction.");
+function showVisualNotification(message, durationMs = 3000) {
+    const container = document.getElementById('visualNotificationContainer');
+    if (!container) return;
+    while (container.children.length >= 3) container.removeChild(container.firstChild);
+    const el = document.createElement('div');
+    el.className = 'visual-notification';
+    el.textContent = message;
+    el.style.cssText = `
+        background:#fff;border:2px solid #007bff;border-radius:5px;
+        padding:10px 20px;font-size:18px;font-weight:bold;color:#333;
+        box-shadow:0 0 10px rgba(0,0,0,.3);margin:10px auto;text-align:center;
+        max-width:300px;animation:fadeInOut ${durationMs / 1000}s forwards;
+    `;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), durationMs);
 }
 
-// Initialize Web Audio Context for better control on Safari
-let audioContext = null;
-let audioBuffers = {}; // Store decoded audio buffers
-let bufferLoadPromises = {}; // Track loading promises to avoid duplicates
-
-try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) {
-        audioContext = new AudioContext();
-        if (audioContext.state === 'suspended') {
-            console.log("AudioContext is suspended. Will resume on user interaction.");
-        }
-    } else {
-        console.warn("Web Audio API not supported in this browser.");
-    }
-} catch (e) {
-    console.error("Error initializing AudioContext:", e);
+function showCountdown(text, isGo = false) {
+    const el = document.createElement('div');
+    el.className = isGo ? 'countdown-display go' : 'countdown-display';
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
 }
 
-// Function to load and decode a single audio file into a buffer
-async function loadAudioBuffer(audioId) {
-    if (!audioContext) {
-        console.warn("AudioContext not available, cannot load buffer for:", audioId);
-        return null;
-    }
+// ===== BACKGROUND COLOR =====
 
-    // Return existing buffer if already loaded
-    if (audioBuffers[audioId]) {
-        console.log(`Audio buffer already loaded: ${audioId}`);
-        return audioBuffers[audioId];
-    }
-
-    // Return existing promise if currently loading
-    if (bufferLoadPromises[audioId]) {
-        console.log(`Audio buffer currently loading: ${audioId}`);
-        return bufferLoadPromises[audioId];
-    }
-
-    // Get the URL from the HTML audio element
-    const audioElement = document.getElementById(audioId);
-    if (!audioElement) {
-        console.warn(`Audio element not found for ID: ${audioId}`);
-        return null;
-    }
-
-    const url = audioElement.src;
-    console.log(`Loading audio buffer for ${audioId} from ${url}`);
-
-    // Create and store the loading promise
-    bufferLoadPromises[audioId] = (async () => {
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            audioBuffers[audioId] = audioBuffer;
-            console.log(`✓ Successfully loaded buffer for: ${audioId}`);
-            return audioBuffer;
-        } catch (error) {
-            console.error(`Failed to load audio buffer for ${audioId}:`, error);
-            delete bufferLoadPromises[audioId]; // Allow retry
-            return null;
-        }
-    })();
-
-    return bufferLoadPromises[audioId];
-}
-
-// Function to play an audio buffer using Web Audio API
-function playBuffer(audioId) {
-    if (!audioContext || !audioBuffers[audioId]) {
-        console.warn(`Buffer not available for ${audioId}, falling back to HTML5 Audio`);
-        return Promise.reject(new Error(`Buffer not loaded for ${audioId}`));
-    }
-
-    try {
-        // Resume context if suspended
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffers[audioId];
-        source.connect(audioContext.destination);
-        source.start(0);
-
-        console.log(`Playing buffer: ${audioId}`);
-
-        // Return a promise that resolves when the buffer finishes playing
-        return new Promise((resolve) => {
-            source.onended = () => {
-                console.log(`Finished playing buffer: ${audioId}`);
-                resolve();
-            };
-        });
-    } catch (error) {
-        console.error(`Error playing buffer for ${audioId}:`, error);
-        return Promise.reject(error);
-    }
-}
-
-// Preload all critical audio files as buffers
-async function preloadAudioBuffers() {
-    if (!audioContext) {
-        console.warn("AudioContext not available, skipping buffer preload");
-        return;
-    }
-
-    console.log("Preloading audio buffers for iOS/Safari...");
-
-    // List of critical audio files to preload
-    const criticalAudioIds = [
-        'beepSound',
-        'startBeepSound',
-        'startEnginesSound',
-        'yellowOnSound',
-        'yellowOffSound',
-        'redOnSound',
-        'redOffSound',
-        'endSound',
-        'restartSound',
-        'getReadySound',
-        '30-seconds',
-        '1-minute',
-        '2-minute',
-        '3-minute',
-        '4-minute',
-        '5-minute',
-        '6-minute',
-        '7-minute',
-        '8-minute',
-        '9-minute'
-    ];
-
-    // Load all buffers in parallel
-    const loadPromises = criticalAudioIds.map(id => loadAudioBuffer(id));
-    const results = await Promise.allSettled(loadPromises);
-
-    const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
-    const failCount = results.length - successCount;
-
-    console.log(`Preloaded ${successCount} audio buffers, ${failCount} failed`);
-
-    if (successCount > 0) {
-        showVisualNotification("Audio ready for Safari/iOS", 2000);
-    }
-}
-
-// Audio keepalive functions for Safari/iOS
-function startAudioKeepalive() {
-    if (audioKeepalive) return; // Already running
-
-    // Create a very short silent audio snippet
-    const silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAAABmYWN0BAAAAAAAAABkYXRhAAAAAA==');
-    silentAudio.volume = 0.01; // Nearly silent
-
-    console.log("Starting audio keepalive for Safari/iOS");
-    audioKeepalive = setInterval(() => {
-        silentAudio.play().catch(e => {
-            // Silent failure is OK - this is just to keep context warm
-        });
-    }, 900); // Play every 900ms to keep audio context active
-}
-
-function stopAudioKeepalive() {
-    if (audioKeepalive) {
-        clearInterval(audioKeepalive);
-        audioKeepalive = null;
-        console.log("Stopped audio keepalive");
-    }
-}
-
-// Voice selector logic (for any page with voiceSelect element)
-// List of audio IDs that need voice updates (excluding beep sounds)
-const voiceAudioIds = [
-    'startEnginesSound',
-    'yellowOnSound',
-    'yellowOffSound',
-    'redOnSound',
-    'redOffSound',
-    'endSound',
-    'restartSound',
-    '30-seconds',
-    '1-minute',
-    '2-minute',
-    '3-minute',
-    '4-minute',
-    '5-minute',
-    '6-minute',
-    '7-minute',
-    '8-minute',
-    '9-minute',
-    'getReadySound', // Added for the "Get Ready" sound played before clearing flags
-    // Add any other minute or specific audio IDs present in your HTML
-];
-
-// Function to update audio sources based on selected voice
-function updateAudioSources() {
-    const selectedVoice = voiceSelect.value;
-    console.log(`Updating audio sources to voice: ${selectedVoice}`);
-
-    voiceAudioIds.forEach(audioId => {
-        const audioElement = document.getElementById(audioId);
-        if (audioElement) {
-            let basePath = 'audio/';
-            let prefix = '';
-            let extension = '.mp3';
-
-            if (selectedVoice === 'america') {
-                basePath += 'america/';
-            } else if (selectedVoice === 'europe') {
-                basePath += 'europe/';
-                prefix = 'e-';
-            } else if (selectedVoice === 'merica') {
-                basePath += 'merica/';
-                prefix = 'n-';
-            } else if (selectedVoice === 'dee') {
-                basePath += 'dee/';
-                prefix = 'dee-';
-                extension = '.wav';
-            }
-
-            // Extract the base filename from the current src or a default
-            let baseName = audioId.replace('Sound', '').toLowerCase();
-
-            // Special handling for Dee Liffy voice (different naming convention)
-            if (selectedVoice === 'dee') {
-                // Map audio IDs to Dee Liffy file names (no hyphens in compound words)
-                const deeNameMap = {
-                    'startengines': 'startengines',
-                    'yellowon': 'yellowon',
-                    'yellowoff': 'yellowoff',
-                    'redon': 'redon',
-                    'redoff': 'redoff',
-                    'end': 'end',
-                    'restart': 'restart',
-                    'getready': 'getready',
-                    '30-seconds': '30-seconds',
-                    '1-minute': '1-minute',
-                    '2-minute': '2-minute',
-                    '3-minute': '3-minute',
-                    '4-minute': '4-minute',
-                    '5-minute': '5-minute',
-                    '6-minute': '6-minute',
-                    '7-minute': '7-minute',
-                    '8-minute': '8-minute',
-                    '9-minute': '9-minute'
-                };
-                baseName = deeNameMap[baseName] || baseName;
-            } else {
-                // Standard naming for other voices
-                if (baseName.includes('-')) {
-                    baseName = baseName.replace('-', '-');
-                } else if (audioId === '30-seconds') {
-                    baseName = '30-seconds';
-                } else if (audioId.includes('minute')) {
-                    baseName = audioId.replace('-', '-');
-                }
-            }
-
-            const newSrc = `${basePath}${prefix}${baseName}${extension}`;
-            console.log(`Updating ${audioId} src to: ${newSrc}`);
-            audioElement.src = newSrc;
-            
-            // Add error handler for missing audio files
-            audioElement.addEventListener('error', (e) => {
-                console.error(`Failed to load audio: ${audioId} from ${newSrc}`, e);
-                showVisualNotification(`Audio file missing: ${baseName}`, 5000);
-            }, { once: true });
-
-            // Add canplaythrough handler to confirm successful load
-            audioElement.addEventListener('canplaythrough', () => {
-                console.log(`✓ Audio ready: ${audioId}`);
-            }, { once: true });
-
-            // Force reload of the audio file without playing
-            try {
-                audioElement.load();
-                console.log(`Loaded audio for ${audioId}`);
-            } catch (e) {
-                console.error(`Error loading audio for ${audioId}:`, e);
-            }
-        } else {
-            console.warn(`Audio element not found for ID: ${audioId}`);
-        }
-    });
-}
-
-// Add event listener for voice selection change (only if selector exists)
-if (voiceSelect) {
-    voiceSelect.addEventListener('change', () => {
-        updateAudioSources();
-
-        // Clear existing buffers and reload for new voice (Safari/iOS)
-        if ((isAppleDevice || isSafari) && audioContext) {
-            console.log("Voice changed, clearing and reloading audio buffers...");
-            audioBuffers = {}; // Clear all buffers
-            bufferLoadPromises = {}; // Clear loading promises
-
-            // Reload buffers after a short delay to allow HTML audio elements to update
-            setTimeout(() => {
-                preloadAudioBuffers().then(() => {
-                    console.log("Audio buffers reloaded for new voice");
-                    showVisualNotification("Voice changed - audio reloaded", 2000);
-                }).catch(e => {
-                    console.error("Error reloading buffers after voice change:", e);
-                });
-            }, 500);
-        }
-    });
-    // Initialize audio sources on page load based on default selection
-    updateAudioSources();
-}
-
-// Check if the current page is nosteward.html
-const isNoStewardPage = window.location.pathname.includes('nosteward.html');
-
-// Function to update background color or pattern based on state
 function updateBackgroundColor() {
-    // Remove checkerboard class by default to ensure it's only applied when race ends
     document.body.classList.remove('checkerboard');
-    
-    // Set background based on state
     if (!isRunning && secondsLeft <= 0 && !isPracticeMode) {
-        // Race has ended, apply checkerboard pattern
         document.body.classList.add('checkerboard');
     } else if (isRedFlag) {
-        document.body.style.backgroundColor = '#e74c3c'; // Red for Red Flag
+        document.body.style.backgroundColor = '#e74c3c';
     } else if (isYellowFlag) {
-        document.body.style.backgroundColor = '#f1c40f'; // Yellow for Yellow Flag
+        document.body.style.backgroundColor = '#f1c40f';
     } else if (isRunning) {
-        document.body.style.backgroundColor = '#2ecc71'; // Green for Race Running
+        document.body.style.backgroundColor = '#2ecc71';
     } else {
-        document.body.style.backgroundColor = '#f0f0f0'; // Default gray when not running
+        document.body.style.backgroundColor = '#f0f0f0';
     }
 }
 
-// Function to reset flag counts (called on start and restart)
+// ===== FLAG COUNTS =====
+
 function resetFlagCounts() {
     yellowFlagCount = 0;
     redFlagCount = 0;
-    // Update UI to hide or reset counts display if needed
-    const flagCountDisplay = document.getElementById('flagCountDisplay');
-    if (flagCountDisplay) {
-        flagCountDisplay.style.display = 'none'; // Hide counts at start
-        flagCountDisplay.innerHTML = ''; // Clear any previous content
-    }
-    console.log("Flag counts reset to zero");
+    const display = document.getElementById('flagCountDisplay');
+    if (display) { display.style.display = 'none'; display.innerHTML = ''; }
 }
 
-// Function to display flag counts at race end
 function displayFlagCounts() {
-    const flagCountDisplay = document.getElementById('flagCountDisplay');
-    if (flagCountDisplay) {
-        flagCountDisplay.style.display = 'block'; // Show the display area
-        flagCountDisplay.innerHTML = `
+    const display = document.getElementById('flagCountDisplay');
+    if (display) {
+        display.style.display = 'block';
+        display.innerHTML = `
             <h3>Race Summary</h3>
             <p>Yellow Flags Thrown: ${yellowFlagCount}</p>
             <p>Red Flags Thrown: ${redFlagCount}</p>
         `;
-        console.log(`Race ended. Yellow Flags: ${yellowFlagCount}, Red Flags: ${redFlagCount}`);
     } else {
-        // Fallback to alert if the display element is not found
-        alert(`Race Ended!\nYellow Flags Thrown: ${yellowFlagCount}\nRed Flags Thrown: ${redFlagCount}`);
-        console.warn("Flag count display element not found, using alert as fallback");
+        alert(`Race Ended!\nYellow Flags: ${yellowFlagCount}\nRed Flags: ${redFlagCount}`);
     }
 }
 
-// Function to show visual notification for audio events (fallback for iOS/Safari)
-function showVisualNotification(message, durationMs = 3000) {
-    const notificationContainer = document.getElementById('visualNotificationContainer');
-    if (notificationContainer) {
-        // Limit to 3 notifications max to prevent memory leaks
-        while (notificationContainer.children.length >= 3) {
-            notificationContainer.removeChild(notificationContainer.firstChild);
-        }
+// ===== PRACTICE MODE =====
 
-        const notification = document.createElement('div');
-        notification.className = 'visual-notification';
-        notification.textContent = message;
-        notification.style.cssText = `
-            background-color: #fff;
-            border: 2px solid #007bff;
-            border-radius: 5px;
-            padding: 10px 20px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
-            margin: 10px auto;
-            text-align: center;
-            max-width: 300px;
-            animation: fadeInOut ${durationMs/1000}s forwards;
-        `;
-        notificationContainer.appendChild(notification);
-        console.log(`Showing visual notification: ${message}`);
-        setTimeout(() => {
-            notification.remove();
-        }, durationMs);
-    } else {
-        console.warn("Visual notification container not found, using console log as fallback");
-        console.log(`[Visual Notification]: ${message}`);
-    }
-}
-
-// Function to show countdown numbers during start sequence
-function showCountdown(text, isGo = false) {
-    const countdown = document.createElement('div');
-    countdown.className = isGo ? 'countdown-display go' : 'countdown-display';
-    countdown.textContent = text;
-    document.body.appendChild(countdown);
-    
-    // Remove after animation completes
-    setTimeout(() => countdown.remove(), 1000);
-}
-
-// Practice mode toggle handler
 function togglePracticeMode() {
     isPracticeMode = practiceModeCheckbox.checked;
-    
     if (isPracticeMode) {
-        // Disable race time selector
         raceTimeSelect.disabled = true;
         document.querySelector('.settings').classList.add('practice-mode');
-        
-        // Show practice mode indicator - insert it right after the practice mode section
         if (!document.querySelector('.practice-mode-indicator')) {
             const indicator = document.createElement('div');
             indicator.className = 'practice-mode-indicator';
             indicator.textContent = 'PRACTICE MODE - No Time Limit';
-            
-            // Insert after the practice mode section instead of before timer
-            const practiceModeSection = document.querySelector('.practice-mode-section');
-            practiceModeSection.parentNode.insertBefore(indicator, practiceModeSection.nextSibling);
+            const section = document.querySelector('.practice-mode-section');
+            section.parentNode.insertBefore(indicator, section.nextSibling);
         }
-        
-        // Update timer display
         timerDisplay.textContent = 'PRACTICE';
         timerDisplay.classList.add('practice');
     } else {
-        // Re-enable race time selector
         raceTimeSelect.disabled = false;
         document.querySelector('.settings').classList.remove('practice-mode');
-        
-        // Remove practice mode indicator
         const indicator = document.querySelector('.practice-mode-indicator');
         if (indicator) indicator.remove();
-        
-        // Reset timer display
         timerDisplay.classList.remove('practice');
         updateTimerDisplay();
     }
 }
 
-// Add event listener for practice mode checkbox
 if (practiceModeCheckbox) {
-    practiceModeCheckbox.addEventListener('change', togglePracticeMode);
+    practiceModeCheckbox.addEventListener('change', () => {
+        togglePracticeMode();
+        saveSettings();
+    });
 }
 
-// Utility function to play audio with retry mechanism for Safari reliability
-// Tries Web Audio API buffers first, falls back to HTML5 Audio
-function playAudioWithRetry(audioId, retries = 2, delayMs = 500) {
-    // Try Web Audio API buffer first (most reliable for Safari/iOS)
-    if (audioContext && audioBuffers[audioId]) {
-        console.log(`Using Web Audio API buffer for: ${audioId}`);
-        return playBuffer(audioId).catch(bufferError => {
-            console.warn(`Buffer playback failed for ${audioId}, trying HTML5 Audio:`, bufferError);
-            return playHTML5Audio(audioId, retries, delayMs);
+// ===== VOICE SELECTOR =====
+
+if (voiceSelect) {
+    voiceSelect.addEventListener('change', () => {
+        saveSettings();
+        const voice = voiceSelect.value;
+        // Clear voice-specific cached buffers, keep shared ones
+        Object.keys(audioBuffers).forEach(key => {
+            if (key.includes(':')) delete audioBuffers[key];
         });
-    }
-
-    // Fall back to HTML5 Audio
-    console.log(`No buffer available for ${audioId}, using HTML5 Audio`);
-    return playHTML5Audio(audioId, retries, delayMs);
-}
-
-// HTML5 Audio playback with retry logic
-function playHTML5Audio(audioId, retries = 2, delayMs = 500) {
-    // Check and resume Audio Context before playback attempt
-    if (audioContext && audioContext.state === 'suspended') {
-        try {
-            audioContext.resume().then(() => {
-                console.log("AudioContext resumed before playing audio");
-            }).catch(e => {
-                console.error("Failed to resume AudioContext before playing audio:", e);
-            });
-        } catch (e) {
-            console.error("Error resuming AudioContext before playing audio:", e);
-        }
-    }
-
-    const audio = document.getElementById(audioId);
-    if (!audio) {
-        console.warn(`Audio element not found for ID: ${audioId}`);
-        return Promise.reject(new Error(`Audio element ${audioId} not found`));
-    }
-
-    console.log(`Attempting to play HTML5 audio: ${audioId}`);
-    return audio.play().then(() => {
-        console.log(`Successfully played HTML5 audio: ${audioId}`);
-    }).catch(error => {
-        console.error(`Failed to play HTML5 audio ${audioId}:`, error);
-        if (retries > 0) {
-            console.log(`Retrying playback for ${audioId}. Retries left: ${retries}`);
-            return new Promise(resolve => setTimeout(resolve, delayMs))
-                .then(() => playHTML5Audio(audioId, retries - 1, delayMs));
-        } else {
-            console.error(`All retries failed for ${audioId}`);
-            throw error;
-        }
+        preloadVoice(voice);
     });
 }
 
-// Audio Unlock Modal Logic for Safari/Apple Devices
-function initializeAudioUnlockModal() {
-    const unlockModal = document.getElementById('audioUnlockModal');
-    const unlockButton = document.getElementById('unlockAudioButton');
-    
-    if (unlockModal && unlockButton && (isAppleDevice || isSafari)) {
-        console.log("Showing audio unlock modal for Safari/Apple device users");
-        unlockModal.style.display = 'flex'; // Show modal on page load for Safari users
-        
-        unlockButton.addEventListener('click', () => {
-            console.log("User clicked to unlock audio");
-            // Resume Audio Context if suspended
-            if (audioContext && audioContext.state === 'suspended') {
-                try {
-                    audioContext.resume().then(() => {
-                        console.log("AudioContext resumed successfully");
-                    }).catch(e => {
-                        console.error("Failed to resume AudioContext:", e);
-                    });
-                } catch (e) {
-                    console.error("Error resuming AudioContext:", e);
-                }
-            }
-
-            // Play a short audio to unlock permissions
-            try {
-                const startSound = document.getElementById('startEnginesSound') || document.getElementById('beepSound');
-                if (startSound) {
-                    startSound.play().then(() => {
-                        console.log("Audio permissions unlocked with initial sound");
-                        startSound.pause(); // Pause to avoid playing full sound
-                        startSound.currentTime = 0; // Reset to start
-                    }).catch(e => {
-                        console.error("Failed to unlock audio permissions with initial sound:", e);
-                    });
-                } else {
-                    console.warn("No audio element found for unlocking permissions");
-                }
-            } catch (e) {
-                console.error("Error unlocking audio permissions:", e);
-            }
-
-            // Preload audio buffers for Safari/iOS (Web Audio API)
-            if (isAppleDevice || isSafari) {
-                preloadAudioBuffers().then(() => {
-                    console.log("Audio buffers preloaded successfully");
-                }).catch(e => {
-                    console.error("Error preloading audio buffers:", e);
-                });
-
-                // Also start keepalive as backup
-                startAudioKeepalive();
-            }
-
-            // Hide the modal after click
-            unlockModal.style.display = 'none';
-        });
-    } else if (unlockModal) {
-        console.log("Not on Safari/Apple device, hiding audio unlock modal");
-        unlockModal.style.display = 'none'; // Hide modal for non-Safari users
-    }
+if (raceTimeSelect) {
+    raceTimeSelect.addEventListener('change', saveSettings);
 }
 
-// Handle dismissal of Firefox recommendation message
-function initializeFirefoxRecommendationDismissal() {
-    const dismissButton = document.getElementById('dismissRecommendation');
-    const firefoxRecommendation = document.getElementById('firefoxRecommendation');
-    
-    if (dismissButton && firefoxRecommendation) {
-        dismissButton.addEventListener('click', () => {
-            firefoxRecommendation.style.display = 'none';
-            console.log("Firefox recommendation dismissed by user");
-        });
-    }
-}
-
-// Call initialization on page load
-window.addEventListener('load', initializeAudioUnlockModal);
-window.addEventListener('load', initializeFirefoxRecommendationDismissal);
-
-// Detect iOS Safari and show Firefox recommendation
-if (isAppleDevice && isSafari) {
-    console.log("Running on iOS device with Safari. Recommending Firefox for best audio experience.");
-    window.addEventListener('load', () => {
-        const firefoxRecommendation = document.getElementById('firefoxRecommendation');
-        if (firefoxRecommendation) {
-            firefoxRecommendation.style.display = 'block'; // Show recommendation message
-            console.log("Firefox recommendation message displayed for iOS Safari users");
-        } else {
-            console.warn("Firefox recommendation element not found, using alert as fallback");
-            alert("For the best audio experience on iOS, we recommend using Firefox. Download it from the App Store for full race sound support.");
-        }
-});
-} else if (isAppleDevice) {
-console.log("Running on iOS device but not Safari. No Firefox recommendation needed.");
-} else {
-console.log("Not on iOS device, no Firefox recommendation needed.");
-}
-
-// Start race with updated sequence
-startRaceBtn.addEventListener('click', () => {
-console.log("Start Race button clicked - initializing audio if needed");
-
-// Set up timing based on mode
-if (isPracticeMode) {
-totalSeconds = 0; // Start from 0 for practice mode
-secondsLeft = 0;
-timerDisplay.textContent = '00:00'; // Show elapsed time starting from 0
-} else {
-totalSeconds = parseInt(raceTimeSelect.value) * 60;
-secondsLeft = totalSeconds;
-updateTimerDisplay();
-}
-
-// Disable controls
-raceTimeSelect.disabled = true;
-practiceModeCheckbox.disabled = true; // Disable practice mode toggle during race
-voiceSelect.disabled = true; // Disable voice changing during race
-startRaceBtn.disabled = true;
-yellowFlagBtn.disabled = false;
-redFlagBtn.disabled = false;
-restartBtn.disabled = false;
-resetFlagCounts(); // Reset flag counts at race start
-
-// Enable NoSleep to keep screen awake during the race
-try {
-noSleep.enable();
-console.log("Screen wake lock enabled");
-} catch (e) {
-console.error("Failed to enable screen wake lock:", e);
-showVisualNotification("Note: Screen may sleep during race", 3000);
-}
-
-// Start audio keepalive for Safari/iOS to maintain audio context
-if (isAppleDevice || isSafari) {
-startAudioKeepalive();
-
-// Ensure buffers are loaded (in case modal was skipped)
-if (Object.keys(audioBuffers).length === 0) {
-    console.log("No buffers loaded yet, preloading now...");
-    preloadAudioBuffers().catch(e => {
-        console.error("Error preloading buffers at race start:", e);
-    });
-}
-}
-
-// Resume Audio Context if still suspended (in case modal wasn't clicked)
-if (audioContext && audioContext.state === 'suspended') {
-try {
-    audioContext.resume().then(() => {
-        console.log("AudioContext resumed successfully");
-    }).catch(e => {
-        console.error("Failed to resume AudioContext:", e);
-    });
-} catch (e) {
-    console.error("Error resuming AudioContext:", e);
-}
-}
-
-// Attempt to play start-engines sound
-try {
-const startSound = document.getElementById('startEnginesSound');
-if (startSound) {
-    console.log("Playing start-engines sound");
-    playAudioWithRetry('startEnginesSound').catch(e => {
-        console.error("Failed to play start-engines sound after retries:", e);
-    });
-} else {
-    console.warn("startEnginesSound element not found");
-}
-
-// Preload critical audio files to ensure they are ready, without playing
-const criticalAudioIds = ['beepSound', 'startBeepSound', 'yellowOnSound', 'redOnSound', 'getReadySound'];
-criticalAudioIds.forEach(id => {
-    const audio = document.getElementById(id);
-    if (audio) {
-        try {
-            audio.load();
-            console.log(`Preloaded audio: ${id}`);
-        } catch (e) {
-            console.error(`Error preloading audio ${id}:`, e);
-        }
-    }
-});
-} catch (e) {
-console.error("Error initializing audio:", e);
-}
-
-// Step 1: Wait 3 seconds before starting the beep sequence
-setTimeout(() => {
-// Step 2: Play beep.mp3 every 1.5 seconds for 4 times with countdown
-let beepCount = 0;
-const playNextBeep = () => {
-    if (beepCount < 4) {
-        try {
-            console.log(`Playing beep ${beepCount + 1}/4`);
-            
-            // Show countdown number (4, 3, 2, 1)
-            showCountdown(4 - beepCount);
-            
-            const beepSound = document.getElementById('beepSound');
-            if (beepSound) {
-                beepSound.play().then(() => {
-                    beepSound.onended = () => {
-                        beepCount++;
-                        setTimeout(playNextBeep, 1000); // Wait before next beep
-                    };
-                }).catch(e => {
-                    console.error("Audio play error for beep:", e);
-                    beepCount++;
-                    setTimeout(playNextBeep, 1000); // Continue even if error
-                });
-            } else {
-                console.warn("beepSound element not found");
-                beepCount++;
-                setTimeout(playNextBeep, 1000);
-            }
-        } catch (e) {
-            console.error("Beep sound failed:", e);
-            beepCount++;
-            setTimeout(playNextBeep, 1000);
-        }
-    } else {
-        // Step 3: Wait random 2-3 seconds after last beep
-        const randomFinalDelay = Math.floor(Math.random() * 1000) + 2000; // Random delay between 2000-3000ms (2-3 seconds)
-        setTimeout(() => {
-            // Step 4: Play start-beep.mp3, show "GO!" and start the timer
-            try {
-                console.log("Playing start-beep and starting timer");
-                
-                // Show "GO!" message
-                showCountdown('GO!', true);
-                
-                const startBeepSound = document.getElementById('startBeepSound');
-                if (startBeepSound) {
-                    startBeepSound.play().catch(e => {
-                        console.error("Audio play error for start-beep:", e);
-                        // Retry once if it fails
-                        setTimeout(() => {
-                            console.log("Retrying start-beep playback");
-                            startBeepSound.play().catch(retryError => console.error("Retry failed for start-beep:", retryError));
-                        }, 500);
-                    });
-                } else {
-                    console.warn("startBeepSound element not found");
-                }
-            } catch (e) {
-                console.error("Start-beep sound failed:", e);
-            }
-            isRunning = true;
-            updateBackgroundColor(); // Update background when race starts
-            startTimer();
-        }, randomFinalDelay);
-    }
-};
-playNextBeep(); // Start the beep sequence
-}, 3000); // Initial 3-second delay
-});
-
-// Timer logic
-function startTimer() {
-timerInterval = setInterval(() => {
-if (isRunning) {
-    if (isPracticeMode) {
-        // Count up in practice mode
-        secondsLeft++;
-        updateTimerDisplay();
-        // No end condition in practice mode
-    } else {
-        // Normal countdown mode
-        if (secondsLeft > 0) {
-            secondsLeft--;
-            updateTimerDisplay();
-            checkTimeMarks(); // Check for minute and 30-second marks
-        } else if (secondsLeft <= 0) {
-            clearInterval(timerInterval);
-            isRunning = false;
-            try {
-                console.log("Playing end sound");
-                playAudioWithRetry('endSound', 3, 500).catch(e => {
-                    console.error("Failed to play end sound after retries:", e);
-                    showVisualNotification("Race Ended!", 5000);
-                });
-            } catch (e) {
-                console.error("End sound failed:", e);
-                showVisualNotification("Race Ended!", 5000);
-            }
-            updateBackgroundColor();
-            disableButtons();
-            displayFlagCounts();
-            // Disable NoSleep when race ends
-            try {
-                noSleep.disable();
-                console.log("Screen wake lock disabled");
-            } catch (e) {
-                console.error("Failed to disable screen wake lock:", e);
-            }
-
-            // Stop audio keepalive when race ends
-            stopAudioKeepalive();
-        }
-    }
-}
-}, 1000);
-}
+// ===== TIMER =====
 
 function updateTimerDisplay() {
-if (isPracticeMode) {
-if (!isRunning && secondsLeft === 0) {
-    timerDisplay.textContent = 'PRACTICE';
-} else {
-    const minutes = Math.floor(secondsLeft / 60);
-    const seconds = secondsLeft % 60;
-    timerDisplay.textContent = `PRACTICE: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-}
-} else {
-const minutes = Math.floor(secondsLeft / 60);
-const seconds = secondsLeft % 60;
-timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-}
+    const m = Math.floor(secondsLeft / 60);
+    const s = secondsLeft % 60;
+    const time = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    if (isPracticeMode) {
+        timerDisplay.textContent = (!isRunning && secondsLeft === 0) ? 'PRACTICE' : `PRACTICE: ${time}`;
+    } else {
+        timerDisplay.textContent = time;
+    }
 }
 
 function checkTimeMarks() {
-const currentMinute = Math.floor(secondsLeft / 60);
-const currentSecond = secondsLeft % 60;
-
-// Check for minute marks (play specific minute audio when seconds hit 0)
-// Skip 10-minute mark since there's no callout at race start
-if (currentMinute !== lastMinutePlayed && currentSecond === 0 && currentMinute > 0 && currentMinute < 10) {
-try {
-    const audioId = `${currentMinute}-minute`;
-    console.log(`Playing audio for ${currentMinute} minute(s) left: ${audioId}`);
-    playAudioWithRetry(audioId, 3, 500).catch(e => {
-        console.error(`Failed to play ${audioId} after retries:`, e);
-        showVisualNotification(`${currentMinute} Minute(s) Left`, 3000);
-    });
-    lastMinutePlayed = currentMinute;
-} catch (e) {
-    console.error(`Error playing ${currentMinute}-minute sound:`, e);
-    showVisualNotification(`${currentMinute} Minute(s) Left`, 3000);
-}
+    const currentMinute = Math.floor(secondsLeft / 60);
+    const currentSecond = secondsLeft % 60;
+    if (currentMinute !== lastMinutePlayed && currentSecond === 0 && currentMinute > 0 && currentMinute < 10) {
+        announceWhenFree(`${currentMinute}-minute`);
+        lastMinutePlayed = currentMinute;
+    }
+    if (secondsLeft === 30 && !hasPlayed30Seconds) {
+        announceWhenFree('30-seconds');
+        hasPlayed30Seconds = true;
+    }
 }
 
-// Check for 30-second mark
-if (secondsLeft === 30 && !hasPlayed30Seconds) {
-try {
-    console.log("Playing audio for 30 seconds left");
-    playAudioWithRetry('30-seconds', 3, 500).catch(e => {
-        console.error("Failed to play 30-seconds after retries:", e);
-        showVisualNotification("30 Seconds Left", 3000);
-    });
-    hasPlayed30Seconds = true; // Mark as played to avoid repeats
-} catch (e) {
-    console.error("30-seconds sound failed:", e);
-    showVisualNotification("30 Seconds Left", 3000);
-}
-}
+function startTimer() {
+    timerInterval = setInterval(() => {
+        if (!isRunning) return;
+        if (isPracticeMode) {
+            secondsLeft++;
+            updateTimerDisplay();
+        } else if (secondsLeft > 0) {
+            secondsLeft--;
+            updateTimerDisplay();
+            checkTimeMarks();
+        } else {
+            clearInterval(timerInterval);
+            isRunning = false;
+            raceActive = false;
+            raceSessionId++;
+            clearPendingTimeouts();
+            stopAllSounds();
+            announce('endSound');
+            updateBackgroundColor();
+            disableButtons();
+            displayFlagCounts();
+            try { noSleep.disable(); } catch (e) {}
+        }
+    }, 1000);
 }
 
 function disableButtons() {
-yellowFlagBtn.disabled = true;
-redFlagBtn.disabled = true;
-restartBtn.disabled = false;
+    yellowFlagBtn.disabled = true;
+    redFlagBtn.disabled = true;
+    restartBtn.disabled = false;
 }
 
-// Yellow Flag logic with conditional delay for clearing, get-ready sound, and button disable
+// ===== START RACE =====
+
+startRaceBtn.addEventListener('click', () => {
+    // Resume AudioContext synchronously — this call in a user gesture handler
+    // satisfies iOS Safari's requirement for audio to be unlocked by user interaction.
+    if (audioContext && audioContext.state !== 'running') {
+        audioContext.resume();
+    }
+
+    if (isPracticeMode) {
+        totalSeconds = 0;
+        secondsLeft = 0;
+        timerDisplay.textContent = '00:00';
+    } else {
+        totalSeconds = parseInt(raceTimeSelect.value) * 60;
+        secondsLeft = totalSeconds;
+        updateTimerDisplay();
+    }
+
+    raceTimeSelect.disabled = true;
+    practiceModeCheckbox.disabled = true;
+    voiceSelect.disabled = true;
+    startRaceBtn.disabled = true;
+    // Flags stay disabled until GO so flag calls can't talk over the start sequence
+    yellowFlagBtn.disabled = true;
+    redFlagBtn.disabled = true;
+    restartBtn.disabled = false;
+    resetFlagCounts();
+    raceActive = true;
+
+    try { noSleep.enable(); } catch (e) {
+        showVisualNotification('Note: Screen may sleep during race', 3000);
+    }
+
+    const sessionId = ++raceSessionId;
+
+    // After the engines callout finishes (min 3s): countdown beeps (4, 3, 2, 1) then random 2–3s delay then GO
+    Promise.all([announce('startEnginesSound'), wait(3000)]).then(() => {
+        if (sessionId !== raceSessionId) return;
+        let beepCount = 0;
+        const playNextBeep = () => {
+            if (sessionId !== raceSessionId) return;
+            if (beepCount < 4) {
+                showCountdown(4 - beepCount);
+                playSound('beepSound').then(() => {
+                    beepCount++;
+                    schedule(playNextBeep, 1000);
+                });
+            } else {
+                const randomDelay = Math.floor(Math.random() * 1000) + 2000;
+                schedule(() => {
+                    if (sessionId !== raceSessionId) return;
+                    showCountdown('GO!', true);
+                    playSound('startBeepSound');
+                    yellowFlagBtn.disabled = false;
+                    redFlagBtn.disabled = false;
+                    isRunning = true;
+                    updateBackgroundColor();
+                    startTimer();
+                }, randomDelay);
+            }
+        };
+        playNextBeep();
+    });
+});
+
+// ===== FLAG BUTTONS =====
+
+// No-steward mode: "get ready" plays, then the flag clears after a random 3–6s from the click,
+// but never sooner than 1–3s (random) after "get ready" finishes, so the clips never overlap
+// and the clear stays unpredictable even with long announcer clips.
+function clearFlagAfterDelay(clearFn) {
+    const sessionId = raceSessionId;
+    yellowFlagBtn.disabled = true;
+    redFlagBtn.disabled = true;
+    const afterGetReady = announce('getReadySound').then(() => wait(Math.random() * 2000 + 1000));
+    Promise.all([afterGetReady, wait(getRandomDelay())]).then(() => {
+        if (sessionId !== raceSessionId) return;
+        clearFn();
+        yellowFlagBtn.disabled = false;
+        redFlagBtn.disabled = false;
+    });
+}
+
 yellowFlagBtn.addEventListener('click', () => {
-isYellowFlag = !isYellowFlag;
-if (isYellowFlag) {
-try {
-    console.log("Playing yellow-on sound");
-    playAudioWithRetry('yellowOnSound').catch(e => {
-        console.error("Failed to play yellow-on sound after retries:", e);
-        showVisualNotification("Yellow Flag Thrown", 2000);
-    });
-} catch (e) {
-    console.error("Yellow on sound failed:", e);
-    showVisualNotification("Yellow Flag Thrown", 2000);
-}
-yellowFlagBtn.textContent = 'Clear Yellow Flag';
-yellowFlagCount++; // Increment count when Yellow Flag is thrown
-console.log(`Yellow Flag thrown. Total count: ${yellowFlagCount}`);
-updateBackgroundColor(); // Update background immediately when Yellow Flag is set
-} else {
-const updateYellowFlagOff = () => {
-    try {
-        console.log("Playing yellow-off sound");
-        playAudioWithRetry('yellowOffSound').catch(e => {
-            console.error("Failed to play yellow-off sound after retries:", e);
-            showVisualNotification("Yellow Flag Cleared", 2000);
-        });
-    } catch (e) {
-        console.error("Yellow off sound failed:", e);
-        showVisualNotification("Yellow Flag Cleared", 2000);
+    isYellowFlag = !isYellowFlag;
+    if (isYellowFlag) {
+        announce('yellowOnSound');
+        yellowFlagBtn.textContent = 'Clear Yellow Flag';
+        yellowFlagCount++;
+        updateBackgroundColor();
+    } else {
+        const clearYellow = () => {
+            announce('yellowOffSound');
+            yellowFlagBtn.textContent = 'Yellow Flag';
+            updateBackgroundColor();
+        };
+        if (isNoStewardPage) clearFlagAfterDelay(clearYellow);
+        else clearYellow();
     }
-    yellowFlagBtn.textContent = 'Yellow Flag';
-    updateBackgroundColor(); // Update background when Yellow Flag is cleared
-    console.log("Yellow Flag cleared after delay (if applied)");
-    // Re-enable buttons after delay completes (only on nosteward.html)
-    if (isNoStewardPage) {
-        yellowFlagBtn.disabled = false;
-        redFlagBtn.disabled = false;
-        console.log("Buttons re-enabled after delay for Yellow Flag clear");
-    }
-};
-
-if (isNoStewardPage) {
-    try {
-        console.log("Playing get-ready sound before delay for Yellow Flag clear");
-        playAudioWithRetry('getReadySound').catch(e => {
-            console.error("Failed to play get-ready sound after retries:", e);
-            showVisualNotification("Get Ready for Green Flag", 2000);
-        });
-    } catch (e) {
-        console.error("Get-ready sound failed for Yellow Flag clear:", e);
-        showVisualNotification("Get Ready for Green Flag", 2000);
-    }
-    // Disable both buttons during the delay to prevent re-clicking
-    yellowFlagBtn.disabled = true;
-    redFlagBtn.disabled = true;
-    console.log("Buttons disabled during delay for Yellow Flag clear");
-    const delay = getRandomDelay();
-    console.log(`Applying random delay of ${delay}ms for Yellow Flag clear on nosteward.html`);
-    setTimeout(updateYellowFlagOff, delay);
-} else {
-    console.log("No delay applied for Yellow Flag clear (not on nosteward.html)");
-    updateYellowFlagOff();
-}
-}
-
-if (isYellowFlag) {
-updateBackgroundColor(); // Already updated if flag is set, but ensure consistency
-}
 });
 
-// Red Flag logic with conditional delay for clearing, get-ready sound, and button disable
 redFlagBtn.addEventListener('click', () => {
-isRedFlag = !isRedFlag;
-if (isRedFlag) {
-try {
-    console.log("Playing red-on sound");
-    playAudioWithRetry('redOnSound').catch(e => {
-        console.error("Failed to play red-on sound after retries:", e);
-        showVisualNotification("Red Flag Thrown", 2000);
-    });
-} catch (e) {
-    console.error("Red on sound failed:", e);
-    showVisualNotification("Red Flag Thrown", 2000);
-}
-isRunning = false;
-clearInterval(timerInterval);
-redFlagBtn.textContent = 'Clear Red Flag';
-redFlagCount++; // Increment count when Red Flag is thrown
-console.log(`Red Flag thrown. Total count: ${redFlagCount}`);
-updateBackgroundColor(); // Update background immediately when Red Flag is set
-} else {
-const updateRedFlagOff = () => {
-    try {
-        console.log("Playing red-off sound");
-        playAudioWithRetry('redOffSound').catch(e => {
-            console.error("Failed to play red-off sound after retries:", e);
-            showVisualNotification("Red Flag Cleared", 2000);
-        });
-    } catch (e) {
-        console.error("Red off sound failed:", e);
-        showVisualNotification("Red Flag Cleared", 2000);
+    isRedFlag = !isRedFlag;
+    if (isRedFlag) {
+        announce('redOnSound');
+        isRunning = false;
+        clearInterval(timerInterval);
+        redFlagBtn.textContent = 'Clear Red Flag';
+        redFlagCount++;
+        updateBackgroundColor();
+    } else {
+        const clearRed = () => {
+            announce('redOffSound');
+            isRunning = true;
+            startTimer();
+            redFlagBtn.textContent = 'Red Flag';
+            updateBackgroundColor();
+        };
+        if (isNoStewardPage) clearFlagAfterDelay(clearRed);
+        else clearRed();
     }
-    isRunning = true;
-    startTimer();
-    redFlagBtn.textContent = 'Red Flag';
-    updateBackgroundColor(); // Update background when Red Flag is cleared
-    console.log("Red Flag cleared after delay (if applied)");
-    // Re-enable buttons after delay completes (only on nosteward.html)
-    if (isNoStewardPage) {
-        yellowFlagBtn.disabled = false;
-        redFlagBtn.disabled = false;
-        console.log("Buttons re-enabled after delay for Red Flag clear");
-    }
-};
+});
 
-if (isNoStewardPage) {
-    try {
-        console.log("Playing get-ready sound before delay for Red Flag clear");
-        playAudioWithRetry('getReadySound').catch(e => {
-            console.error("Failed to play get-ready sound after retries for Red Flag:", e);
-            showVisualNotification("Get Ready for Green Flag", 2000);
-        });
-    } catch (e) {
-        console.error("Get-ready sound failed for Red Flag clear:", e);
-        showVisualNotification("Get Ready for Green Flag", 2000);
+// ===== RESTART =====
+
+// Same in both modes: stops all audio and pending race steps, resets, then plays the restart call.
+restartBtn.addEventListener('click', () => {
+    if (raceActive && !confirm('Restart the race?')) return;
+    raceActive = false;
+    raceSessionId++;
+    clearPendingTimeouts();
+    stopAllSounds();
+    clearInterval(timerInterval);
+    isRunning = false;
+    if (isPracticeMode) {
+        secondsLeft = 0;
+        timerDisplay.textContent = 'PRACTICE';
+    } else {
+        secondsLeft = totalSeconds;
+        updateTimerDisplay();
     }
-    // Disable both buttons during the delay to prevent re-clicking
+    isYellowFlag = false;
+    isRedFlag = false;
+    yellowFlagBtn.textContent = 'Yellow Flag';
+    redFlagBtn.textContent = 'Red Flag';
+    raceTimeSelect.disabled = isPracticeMode;
+    practiceModeCheckbox.disabled = false;
+    voiceSelect.disabled = false;
+    startRaceBtn.disabled = false;
     yellowFlagBtn.disabled = true;
     redFlagBtn.disabled = true;
-    console.log("Buttons disabled during delay for Red Flag clear");
-    const delay = getRandomDelay();
-    console.log(`Applying random delay of ${delay}ms for Red Flag clear on nosteward.html`);
-    setTimeout(updateRedFlagOff, delay);
-} else {
-    console.log("No delay applied for Red Flag clear (not on nosteward.html)");
-    updateRedFlagOff();
-}
-}
-
-if (isRedFlag) {
-updateBackgroundColor(); // Already updated if flag is set, but ensure consistency
-}
-});
-
-// Restart logic
-restartBtn.addEventListener('click', () => {
-console.log("Restart button clicked");
-clearInterval(timerInterval);
-isRunning = false;
-
-// Reset based on mode
-if (isPracticeMode) {
-secondsLeft = 0;
-timerDisplay.textContent = 'PRACTICE';
-} else {
-secondsLeft = totalSeconds;
-updateTimerDisplay();
-}
-
-isYellowFlag = false;
-isRedFlag = false;
-yellowFlagBtn.textContent = 'Yellow Flag';
-redFlagBtn.textContent = 'Red Flag';
-raceTimeSelect.disabled = false; // Enable time selector on restart
-practiceModeCheckbox.disabled = false; // Re-enable practice mode checkbox
-voiceSelect.disabled = false; // Re-enable voice selector on restart
-startRaceBtn.disabled = false; // Enable start button
-yellowFlagBtn.disabled = true; // Disable flag buttons until race starts
-redFlagBtn.disabled = true;
-restartBtn.disabled = true; // Disable restart until race starts again
-lastMinutePlayed = -1;
-hasPlayed30Seconds = false; // Reset 30-second sound flag on restart
-resetFlagCounts(); // Reset flag counts on restart
-
-// Stop audio keepalive when race is restarted
-stopAudioKeepalive();
-
-try {
-console.log("Playing restart sound");
-playAudioWithRetry('restartSound').catch(e => {
-    console.error("Failed to play restart sound after retries:", e);
-    showVisualNotification("Race Restarted", 2000);
-});
-} catch (e) {
-console.error("Restart sound failed:", e);
-showVisualNotification("Race Restarted", 2000);
-}
-
-updateBackgroundColor(); // Update background when race is restarted (remove checkerboard)
-
-// Disable NoSleep when race is restarted
-try {
-noSleep.disable();
-console.log("Screen wake lock disabled on restart");
-} catch (e) {
-console.error("Failed to disable screen wake lock on restart:", e);
-}
+    restartBtn.disabled = true;
+    lastMinutePlayed = -1;
+    hasPlayed30Seconds = false;
+    resetFlagCounts();
+    announce('restartSound');
+    updateBackgroundColor();
+    try { noSleep.disable(); } catch (e) {}
 });

@@ -5,23 +5,23 @@ A simple web based and mobile friendly racing timer.
 
 ![race-example](https://github.com/user-attachments/assets/2bce6e5c-d551-44d3-95d3-420965432a23)
 
-## Features:
+## Features
 - Select race length from 1 to 10 minutes.
-- Three different announcer voices.
+- Five announcer voices: American, European, NASCAR, Dee Liffy, and DJT.
 - Race with or without a steward.
-  - When racing without a steward, green flags are randomly thrown after clearing a flag.
-  - When racing with a steward, green flags are thrown as soon the steward clears a flag.
-- Audible time remaing callouts at every minute and the last 30 seconds.
-- Practice mode can be enabled to disable the countdown.
-- While a race is running your mobile screen will remain on.
+  - Without a steward: green flags are thrown after a random 3–6 second delay.
+  - With a steward: green flags are thrown as soon as the steward clears the flag.
+- Audible time remaining callouts at every minute and at 30 seconds.
+- Practice mode (counts up, no race end condition).
+- Screen stays on during a race (via NoSleep.js).
 - Red flags pause the timer.
+- Progressive Web App — installable on home screen, works offline.
 
-## Apple iOS:
-As of version 1.6.3, audio should work reliably on iOS/Safari using Web Audio API buffers. However, if you experience any audio issues, Firefox is recommended as an alternative browser on Apple devices.
+## Mobile Compatibility
+Audio is handled via the Web Audio API and works on iOS Safari, Chrome on Android, and all modern desktop browsers. No additional setup is required — tap Start Race and audio will play.
 
-[Firefox on the Apple App Store](https://apps.apple.com/us/app/firefox-private-web-browser/id989804926)
-
-If you continue to experience audio problems, please open an issue on GitHub.
+## Changelog
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ## Development
 Code written with major assistance from Grok3 and Claude 4 AI.
