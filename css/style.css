@@ -443,3 +443,49 @@ button:disabled {
     margin: 10px 0 20px 0; /* Adjusted margins */
     color: #333;
 }
+/* Live broadcast toggle */
+.live-broadcast {
+    margin: 15px auto;
+    text-align: center;
+}
+
+.live-status {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #555;
+}
+
+.live-status.ok { color: #1e8449; }
+.live-status.sending { color: #555; }
+.live-status.error { color: #c0392b; }
+
+.live-token-form {
+    margin-top: 10px;
+}
+
+.live-token-form input {
+    padding: 8px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    max-width: 200px;
+}
+
+.live-token-form button,
+.live-token-change {
+    padding: 8px 14px;
+    font-size: 14px;
+}
+
+.live-token-change {
+    display: block;
+    margin: 8px auto 0;
+    background-color: #ddd;
+}
+
+.live-token-change[hidden],
+.live-token-form[hidden] {
+    display: none;
+}

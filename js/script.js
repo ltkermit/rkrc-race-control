@@ -23,6 +23,13 @@ let isPracticeMode = false;
 let raceActive = false;      // true from Start Race until the race ends or is restarted
 let raceSessionId = 0;       // bumped on end/restart so pending race steps cancel themselves
 
+// Live broadcast state (see js/live.js)
+let liveRaceId = null;
+let raceStartedAt = null;    // epoch ms at GO
+let raceEnded = false;       // true once the timer reaches 0, until restart
+let yellowShown = false;     // yellow on track; in no-steward mode stays on through the clear delay
+let redPausedSec = 0;        // total red-flag pause, aligned to the timer's own ticks
+
 const isNoStewardPage = window.location.pathname.includes('nosteward.html');
 const noSleep = new NoSleep();
 
@@ -315,6 +322,55 @@ function updateBackgroundColor() {
     }
 }
 
+// ===== LIVE BROADCAST =====
+
+function newRaceId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+}
+
+function getLiveStatus() {
+    if (raceEnded) return 'ended';
+    if (!raceActive) return 'idle';
+    if (!raceStartedAt) return 'countdown';
+    if (!isRunning) return 'red';    // the timer only pauses for a red flag
+    if (yellowShown) return 'yellow';
+    return 'running';
+}
+
+function getLiveState() {
+    if (!liveRaceId) return null;
+    const status = getLiveStatus();
+    return {
+        raceId: liveRaceId,
+        status,
+        practice: isPracticeMode,
+        mode: isNoStewardPage ? 'nosteward' : 'steward',
+        durationSec: totalSeconds,
+        startedAt: raceStartedAt,
+        pausedRemainingSec: status === 'red' ? secondsLeft : null,
+        yellowCount: yellowFlagCount,
+        redCount: redFlagCount,
+        redPausedSec: Math.round(redPausedSec * 10) / 10,
+    };
+}
+
+// Viewers compute race time as elapsed = (now - startedAt)/1000 - redPausedSec, showing
+// durationSec - elapsed (rounded up), or elapsed itself in practice. Setting redPausedSec so that
+// formula matches secondsLeft at the moment the timer resumes keeps viewers in step, absorbing
+// the partial second the restarted interval loses.
+function alignRedPause() {
+    if (!raceStartedAt) return;
+    const wallSec = (Date.now() - raceStartedAt) / 1000;
+    const tickedSec = isPracticeMode ? secondsLeft : totalSeconds - secondsLeft;
+    redPausedSec = Math.max(0, wallSec - tickedSec);
+}
+
+liveBroadcast.init(getLiveState);
+
 // ===== FLAG COUNTS =====
 
 function resetFlagCounts() {
@@ -429,6 +485,7 @@ function startTimer() {
             clearInterval(timerInterval);
             isRunning = false;
             raceActive = false;
+            raceEnded = true;
             raceSessionId++;
             clearPendingTimeouts();
             stopAllSounds();
@@ -436,6 +493,7 @@ function startTimer() {
             updateBackgroundColor();
             disableButtons();
             displayFlagCounts();
+            liveBroadcast.notify();
             try { noSleep.disable(); } catch (e) {}
         }
     }, 1000);
@@ -472,6 +530,12 @@ startRaceBtn.addEventListener('click', () => {
     restartBtn.disabled = false;
     resetFlagCounts();
     raceActive = true;
+    liveRaceId = newRaceId();
+    raceStartedAt = null;
+    raceEnded = false;
+    yellowShown = false;
+    redPausedSec = 0;
+    liveBroadcast.notify();
 
     try { noSleep.enable(); } catch (e) {
         showVisualNotification('Note: Screen may sleep during race', 3000);
@@ -500,8 +564,10 @@ startRaceBtn.addEventListener('click', () => {
                     yellowFlagBtn.disabled = false;
                     redFlagBtn.disabled = false;
                     isRunning = true;
+                    raceStartedAt = Date.now();
                     updateBackgroundColor();
                     startTimer();
+                    liveBroadcast.notify();
                 }, randomDelay);
             }
         };
@@ -534,12 +600,16 @@ yellowFlagBtn.addEventListener('click', () => {
         announce('yellowOnSound');
         yellowFlagBtn.textContent = 'Clear Yellow Flag';
         yellowFlagCount++;
+        yellowShown = true;
         updateBackgroundColor();
+        liveBroadcast.notify();
     } else {
         const clearYellow = () => {
             announce('yellowOffSound');
             yellowFlagBtn.textContent = 'Yellow Flag';
+            yellowShown = false;
             updateBackgroundColor();
+            liveBroadcast.notify();
         };
         if (isNoStewardPage) clearFlagAfterDelay(clearYellow);
         else clearYellow();
@@ -556,13 +626,16 @@ redFlagBtn.addEventListener('click', () => {
         redFlagBtn.textContent = 'Clear Red Flag';
         redFlagCount++;
         updateBackgroundColor();
+        liveBroadcast.notify();
     } else {
         const clearRed = () => {
             announce('redOffSound');
             isRunning = true;
+            alignRedPause();
             startTimer();
             redFlagBtn.textContent = 'Red Flag';
             updateBackgroundColor();
+            liveBroadcast.notify();
         };
         if (isNoStewardPage) clearFlagAfterDelay(clearRed);
         else clearRed();
@@ -604,6 +677,8 @@ restartBtn.addEventListener('click', () => {
 function restartRace() {
     unlockAudio();
     raceActive = false;
+    raceEnded = false;
+    yellowShown = false;
     raceSessionId++;
     clearPendingTimeouts();
     stopAllSounds();
@@ -632,5 +707,6 @@ function restartRace() {
     resetFlagCounts();
     announce('restartSound');
     updateBackgroundColor();
+    liveBroadcast.notify();
     try { noSleep.disable(); } catch (e) {}
 }

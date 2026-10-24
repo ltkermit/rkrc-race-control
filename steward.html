@@ -76,6 +76,18 @@
                 <option value="djt">DJT</option>
             </select>
         </div>
+        <div class="live-broadcast">
+            <label for="liveBroadcast" class="practice-checkbox-label">
+                <input type="checkbox" id="liveBroadcast">
+                Broadcast live to rkrc.club
+            </label>
+            <span id="liveStatus" class="live-status"></span>
+            <div id="liveTokenForm" class="live-token-form" hidden>
+                <input type="password" id="liveToken" placeholder="Broadcast token" autocomplete="off">
+                <button type="button" id="liveTokenSave">Save</button>
+            </div>
+            <button type="button" id="liveTokenChange" class="live-token-change" hidden>Change token</button>
+        </div>
         <div id="flagCountDisplay" style="display: none; text-align: center; margin-top: 20px;">
             <!-- Flag counts will be dynamically inserted here -->
         </div>
@@ -87,6 +99,7 @@
         <a href="https://rkrc.club" target="_blank">RKRC</a> - <a href="changelog.html">Changelog</a>
     </div>
     <!-- Include main timer function script -->
+    <script src="js/live.js?v=1.8.4"></script>
     <script src="js/script.js?v=1.8.4"></script>
 </body>
 </html>
