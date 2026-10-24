@@ -4,6 +4,13 @@ All notable changes to RKRC Race Control are documented here.
 
 ---
 
+## v1.8.5 — 2026-10-24
+
+### Added
+- Live broadcast: turn on "Broadcast live to rkrc.club" on the timer page (enter the club's broadcast token once) and members can follow the race at rkrc.club/live. Finished races are recorded in a race history there. Sending never holds up the timer or audio; if the connection drops, updates retry quietly in the background.
+
+---
+
 ## v1.8.4 — 2026-10-24
 
 ### Fixed
