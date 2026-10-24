@@ -4,6 +4,13 @@ All notable changes to RKRC Race Control are documented here.
 
 ---
 
+## v1.8.4 — 2026-10-24
+
+### Fixed
+- iOS: the restart call didn't play after confirming a restart. The native confirm dialog suspends audio on iOS, and the tap that closes it can't resume it. Restart now uses an in-page confirm dialog, and every button resumes audio within its own tap.
+
+---
+
 ## v1.8.3 — 2026-10-24
 
 ### Added
@@ -17,6 +24,7 @@ All notable changes to RKRC Race Control are documented here.
 - Restart works the same in both modes: it stops all audio and pending race steps and always plays the restart call. It asks for confirmation whenever a race is underway (including during the start sequence and while a flag is clearing), but not after a race has ended.
 
 ### Fixed
+- Restart audio fixes not reaching the live site: server and browser caches kept serving the old script. Pages now load `script.js` and `style.css` with a version query, the service worker bypasses the HTTP cache when installing, and the `.htaccess` no-cache rule for the service worker now actually applies.
 - In no-steward mode, a pending flag clear could fire after Restart or after the race ended, restarting the clock or re-enabling the flag buttons.
 - A red flag thrown during the start sequence was overridden when the race went green.
 - Restarting in practice mode re-enabled the race time selector.

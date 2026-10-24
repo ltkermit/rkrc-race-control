@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="RKRC Race Control version history and changelog">
     <title>RKRC Race Control - Changelog</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=1.8.4">
     <link rel="icon" type="image/x-icon" href="img/favicon.ico">
     <style>
         /* Allow the page to scroll — the shared body CSS uses height:100vh which clips tall pages */
@@ -28,6 +28,13 @@
     </div>
     <div class="changelog">
 
+        <h2>v1.8.4 <span class="version-tag">2026-10-24</span></h2>
+
+        <h3>Fixed</h3>
+        <ul>
+            <li>iOS: the restart call didn&rsquo;t play after confirming a restart. The native confirm dialog suspends audio on iOS, and the tap that closes it can&rsquo;t resume it. Restart now uses an in-page confirm dialog, and every button resumes audio within its own tap.</li>
+        </ul>
+
         <h2>v1.8.3 <span class="version-tag">2026-10-24</span></h2>
 
         <h3>Added</h3>
@@ -46,6 +53,7 @@
 
         <h3>Fixed</h3>
         <ul>
+            <li>Restart audio fixes not reaching the live site: server and browser caches kept serving the old script. Pages now load <code>script.js</code> and <code>style.css</code> with a version query, the service worker bypasses the HTTP cache when installing, and the <code>.htaccess</code> no-cache rule for the service worker now actually applies.</li>
             <li>In no-steward mode, a pending flag clear could fire after Restart or after the race ended, restarting the clock or re-enabling the flag buttons.</li>
             <li>A red flag thrown during the start sequence was overridden when the race went green.</li>
             <li>Restarting in practice mode re-enabled the race time selector.</li>

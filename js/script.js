@@ -118,6 +118,12 @@ let announcerActive = false;
 const announcerQueue = [];
 const MAX_CALLOUT_DELAY_MS = 5000;
 
+// Must be called synchronously inside a tap/click handler: iOS only lets audio resume
+// during a user gesture, and suspends it after things like native dialogs.
+function unlockAudio() {
+    if (audioContext && audioContext.state !== 'running') audioContext.resume();
+}
+
 function getBuffer(audioId) {
     const voice = voiceSelect ? voiceSelect.value : 'america';
     const key = bufferKey(audioId, voice);
@@ -444,11 +450,7 @@ function disableButtons() {
 // ===== START RACE =====
 
 startRaceBtn.addEventListener('click', () => {
-    // Resume AudioContext synchronously — this call in a user gesture handler
-    // satisfies iOS Safari's requirement for audio to be unlocked by user interaction.
-    if (audioContext && audioContext.state !== 'running') {
-        audioContext.resume();
-    }
+    unlockAudio();
 
     if (isPracticeMode) {
         totalSeconds = 0;
@@ -526,6 +528,7 @@ function clearFlagAfterDelay(clearFn) {
 }
 
 yellowFlagBtn.addEventListener('click', () => {
+    unlockAudio();
     isYellowFlag = !isYellowFlag;
     if (isYellowFlag) {
         announce('yellowOnSound');
@@ -544,6 +547,7 @@ yellowFlagBtn.addEventListener('click', () => {
 });
 
 redFlagBtn.addEventListener('click', () => {
+    unlockAudio();
     isRedFlag = !isRedFlag;
     if (isRedFlag) {
         announce('redOnSound');
@@ -567,9 +571,38 @@ redFlagBtn.addEventListener('click', () => {
 
 // ===== RESTART =====
 
-// Same in both modes: stops all audio and pending race steps, resets, then plays the restart call.
+// In-page confirm dialog. window.confirm() can't be used: on iOS it suspends audio,
+// and the tap that closes it doesn't count as a user gesture, so audio can't resume.
+function showConfirm(message, okLabel, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `
+        <div class="confirm-box" role="dialog" aria-modal="true">
+            <p></p>
+            <button type="button" class="confirm-cancel">Cancel</button>
+            <button type="button" class="confirm-ok"></button>
+        </div>`;
+    overlay.querySelector('p').textContent = message;
+    overlay.querySelector('.confirm-ok').textContent = okLabel;
+    overlay.querySelector('.confirm-cancel').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('.confirm-ok').addEventListener('click', () => {
+        overlay.remove();
+        onConfirm();
+    });
+    document.body.appendChild(overlay);
+    overlay.querySelector('.confirm-ok').focus();
+}
+
+// Same in both modes: confirms if a race is underway, then restarts.
 restartBtn.addEventListener('click', () => {
-    if (raceActive && !confirm('Restart the race?')) return;
+    unlockAudio();
+    if (raceActive) showConfirm('Restart the race?', 'Restart', restartRace);
+    else restartRace();
+});
+
+// Stops all audio and pending race steps, resets, then plays the restart call.
+function restartRace() {
+    unlockAudio();
     raceActive = false;
     raceSessionId++;
     clearPendingTimeouts();
@@ -600,4 +633,4 @@ restartBtn.addEventListener('click', () => {
     announce('restartSound');
     updateBackgroundColor();
     try { noSleep.disable(); } catch (e) {}
-});
+}

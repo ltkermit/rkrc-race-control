@@ -1,7 +1,7 @@
-// RKRC Race Control - Service Worker v1.8.3
+// RKRC Race Control - Service Worker v1.8.4
 
-const CACHE_NAME = 'rkrc-race-control-v1.8.3';
-const RUNTIME_CACHE = 'rkrc-runtime-v1.8.3';
+const CACHE_NAME = 'rkrc-race-control-v1.8.4';
+const RUNTIME_CACHE = 'rkrc-runtime-v1.8.4';
 
 const urlsToCache = [
   '/',
@@ -10,8 +10,8 @@ const urlsToCache = [
   '/nosteward.html',
   '/instructions.html',
   '/changelog.html',
-  '/css/style.css',
-  '/js/script.js',
+  '/css/style.css?v=1.8.4',
+  '/js/script.js?v=1.8.4',
   '/js/noSleep.min.js',
   '/manifest.json',
   '/img/logo-v4-no-tag.png',
@@ -119,7 +119,8 @@ const urlsToCache = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+      // cache: 'reload' bypasses the HTTP cache so a stale copy is never stored
+      .then(cache => cache.addAll(urlsToCache.map(url => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });

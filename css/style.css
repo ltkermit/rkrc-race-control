@@ -233,56 +233,47 @@ button:disabled {
     color: #555;
 }
 
-/* Audio Unlock Modal */
-#audioUnlockModal {
-    display: none;
+/* Confirm Dialog (replaces window.confirm, which breaks audio on iOS) */
+.confirm-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     background: rgba(0, 0, 0, 0.7);
     z-index: 1000;
+    display: flex;
     justify-content: center;
     align-items: center;
-    flex-direction: column;
 }
 
-#audioUnlockModal div {
+.confirm-box {
     background: white;
     padding: 20px;
     border-radius: 10px;
     text-align: center;
     max-width: 80%;
     box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    font-family: Arial, sans-serif;
 }
 
-#audioUnlockModal h2 {
-    margin: 0 0 15px 0;
-    font-family: Arial, sans-serif;
+.confirm-box p {
+    margin: 0 0 20px 0;
+    font-size: 20px;
+    font-weight: bold;
     color: #333;
 }
 
-#audioUnlockModal p {
-    margin: 0 0 20px 0;
-    font-family: Arial, sans-serif;
-    color: #555;
-}
-
-#unlockAudioButton {
-    padding: 10px 20px;
+.confirm-box button {
+    padding: 15px 25px;
     font-size: 18px;
-    font-weight: bold;
     color: white;
-    background-color: #007bff;
     border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
 }
 
-#unlockAudioButton:hover {
-    background-color: #0056b3;
+.confirm-box .confirm-cancel {
+    background-color: #6c757d;
+}
+
+.confirm-box .confirm-ok {
+    background-color: #e74c3c;
 }
 
 /* Firefox Recommendation Message */

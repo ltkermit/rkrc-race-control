@@ -9,12 +9,6 @@ AddType application/manifest+json .json
 AddType application/manifest+json .webmanifest
 
 <IfModule mod_headers.c>
-    # Service worker must not be cached and needs full scope
-    <Files "service-worker.js">
-        Header set Cache-Control "no-store, no-cache, must-revalidate"
-        Header set Service-Worker-Allowed "/"
-    </Files>
-
     # Cache audio for 30 days (content rarely changes)
     <FilesMatch "\.(mp3|wav)$">
         Header set Cache-Control "public, max-age=2592000"
@@ -29,6 +23,13 @@ AddType application/manifest+json .webmanifest
     <FilesMatch "\.(html|js|css)$">
         Header set Cache-Control "public, max-age=86400"
     </FilesMatch>
+
+    # Service worker must not be cached and needs full scope.
+    # Must come after the .js rule above, or that rule overrides it.
+    <Files "service-worker.js">
+        Header set Cache-Control "no-store, no-cache, must-revalidate"
+        Header set Service-Worker-Allowed "/"
+    </Files>
 </IfModule>
 
 # Gzip text assets (not audio — already compressed)
