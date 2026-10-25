@@ -4,6 +4,13 @@ All notable changes to RKRC Race Control are documented here.
 
 ---
 
+## v1.8.6 — 2026-10-24
+
+### Added
+- Race results: with broadcast on, use "Pick drivers" before the start to choose who's racing, from club members (downloaded from rkrc.club) or guests (kept on this device). At the checkered flag, tap drivers in finishing order and mark the rest DNF or DNS. Results are saved to the race on rkrc.club/live, and are kept on the device and resent until rkrc.club confirms them. Use "Enter results" or "Edit results" to fill them in later, until the next race starts.
+
+---
+
 ## v1.8.5 — 2026-10-24
 
 ### Added
