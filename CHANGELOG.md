@@ -4,6 +4,13 @@ All notable changes to RKRC Race Control are documented here.
 
 ---
 
+## v1.8.7 — 2026-10-24
+
+### Fixed
+- The "Pick drivers" and "Finishing order" windows were cut off on the right on narrower phones, which could hide the Add, Done and Submit buttons. They now fit the screen.
+
+---
+
 ## v1.8.6 — 2026-10-24
 
 ### Added

@@ -518,6 +518,7 @@ button:disabled {
 }
 
 .driver-box {
+    box-sizing: border-box;   /* padding inside the width, so it fits narrow phones */
     width: 360px;
     max-width: 90%;
     max-height: 85vh;
