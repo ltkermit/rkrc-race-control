@@ -489,3 +489,167 @@ button:disabled {
 .live-token-form[hidden] {
     display: none;
 }
+
+/* Drivers and results */
+.drivers-section,
+.results-prompt {
+    margin: 10px auto;
+    text-align: center;
+}
+
+.drivers-section[hidden],
+.results-prompt[hidden],
+#enterResults[hidden] {
+    display: none;
+}
+
+.drivers-button {
+    padding: 12px 20px;
+    font-size: 16px;
+    color: white;
+    background-color: #2f2bb2;
+    border: none;
+}
+
+.drivers-summary {
+    margin-top: 6px;
+    font-size: 15px;
+    color: #333;
+}
+
+.driver-box {
+    width: 360px;
+    max-width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.driver-box > p {
+    text-align: center;
+}
+
+.driver-filter,
+.guest-add input {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.driver-heading {
+    margin: 14px 0 4px;
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+}
+
+.driver-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid #eee;
+    font-size: 18px;
+    color: #333;
+    cursor: pointer;
+}
+
+.driver-row input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.driver-name {
+    flex: 1;
+    overflow-wrap: anywhere;
+}
+
+.driver-empty {
+    padding: 8px 4px;
+    font-size: 14px;
+    color: #777;
+}
+
+.confirm-box .driver-remove {
+    padding: 4px 12px;
+    margin: 0;
+    font-size: 20px;
+    color: #666;
+    background: none;
+}
+
+.guest-add {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.confirm-box .guest-add button {
+    margin: 0;
+    padding: 10px 16px;
+    font-size: 16px;
+    background-color: #2f2bb2;
+}
+
+.driver-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+}
+
+.confirm-box .driver-done {
+    background-color: #2ecc71;
+}
+
+.results-placed {
+    margin: 0 0 10px;
+    padding: 0;
+    list-style: none;
+}
+
+.results-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 18px;
+    color: #333;
+}
+
+.results-pos {
+    min-width: 44px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.results-row.marked .results-pos {
+    color: #c0392b;
+    font-size: 14px;
+}
+
+.results-hint {
+    margin: 10px 0 6px;
+    font-size: 15px;
+    color: #555;
+}
+
+.confirm-box .results-place {
+    flex: 1;
+    margin: 0;
+    padding: 14px 10px;
+    font-size: 18px;
+    text-align: left;
+    background-color: #2f2bb2;
+}
+
+.confirm-box .results-mark {
+    margin: 0;
+    padding: 14px 10px;
+    font-size: 14px;
+    background-color: #6c757d;
+}

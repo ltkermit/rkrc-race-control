@@ -12,6 +12,7 @@ const urlsToCache = [
   '/changelog.html',
   '/css/style.css?v=1.8.5',
   '/js/live.js?v=1.8.5',
+  '/js/drivers.js?v=1.8.5',
   '/js/script.js?v=1.8.5',
   '/js/noSleep.min.js',
   '/manifest.json',

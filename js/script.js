@@ -29,6 +29,7 @@ let raceStartedAt = null;    // epoch ms at GO
 let raceEnded = false;       // true once the timer reaches 0, until restart
 let yellowShown = false;     // yellow on track; in no-steward mode stays on through the clear delay
 let redPausedSec = 0;        // total red-flag pause, aligned to the timer's own ticks
+let liveDrivers = [];        // drivers picked for this race (see js/drivers.js)
 
 const isNoStewardPage = window.location.pathname.includes('nosteward.html');
 const noSleep = new NoSleep();
@@ -355,6 +356,7 @@ function getLiveState() {
         yellowCount: yellowFlagCount,
         redCount: redFlagCount,
         redPausedSec: Math.round(redPausedSec * 10) / 10,
+        drivers: liveDrivers,
     };
 }
 
@@ -494,6 +496,7 @@ function startTimer() {
             disableButtons();
             displayFlagCounts();
             liveBroadcast.notify();
+            raceDrivers.raceEnded();
             try { noSleep.disable(); } catch (e) {}
         }
     }, 1000);
@@ -535,6 +538,7 @@ startRaceBtn.addEventListener('click', () => {
     raceEnded = false;
     yellowShown = false;
     redPausedSec = 0;
+    liveDrivers = raceDrivers.startRace(liveRaceId, isPracticeMode);
     liveBroadcast.notify();
 
     try { noSleep.enable(); } catch (e) {
@@ -708,5 +712,6 @@ function restartRace() {
     announce('restartSound');
     updateBackgroundColor();
     liveBroadcast.notify();
+    raceDrivers.raceCancelled();
     try { noSleep.disable(); } catch (e) {}
 }

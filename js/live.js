@@ -138,6 +138,7 @@ const liveBroadcast = (() => {
         if (tokenForm) tokenForm.hidden = true;
         if (tokenChangeBtn) tokenChangeBtn.hidden = !token();
         setStatus(enabled ? 'On' : '', enabled ? 'ok' : '');
+        document.dispatchEvent(new CustomEvent('livebroadcastchange', { detail: { enabled } }));
     }
 
     if (toggle) {
@@ -176,5 +177,8 @@ const liveBroadcast = (() => {
     return {
         init(stateFn) { getState = stateFn; },
         notify,
+        isEnabled,
+        endpoint,
+        token,
     };
 })();
